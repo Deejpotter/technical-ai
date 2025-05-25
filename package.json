@@ -1,0 +1,33 @@
+{
+  "name": "cnc-technical-ai",
+  "version": "1.0.0",
+  "description": "A chatbot that provides detailed technical information about CNC machines and related products. It is built using Python, Flask, and OpenAI's GPT-3, and is deployed on Heroku.",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "dev": "nodemon --exec ts-node src/app.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Deej Potter <deejpotter@gmail.com>",
+  "license": "ISC",
+  "repository": "git@github.com:Deejpotter/cnc-technical-ai.git",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.21",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
