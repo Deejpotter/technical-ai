@@ -57,7 +57,7 @@ const swaggerDocs = swaggerJsDoc(swaggerOptions);
 app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Import routes
-const routes = require('./routes');
+const routes = require('../cnc-tools/backend/routes');
 app.use('/', routes);
 
 // Redirect root to Swagger UI

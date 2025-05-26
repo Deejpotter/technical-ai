@@ -9,7 +9,7 @@
 import ShippingItem from "@/interfaces/box-shipping-calculator/ShippingItem";
 import { DatabaseResponse } from "@/app/actions/mongodb/types";
 import { DataProviderOptions } from "./DataProvider";
-import { MongoDBProvider } from "../MongoDBProvider"; // Added
+import { MongoDBProvider } from "../../cnc-tools/backend/MongoDBProviderical-ai/MongoDBProvider"; // Added
 
 // Singleton instance of the hybrid provider
 const dataProvider = new MongoDBProvider(); // Changed to MongoDBProvider

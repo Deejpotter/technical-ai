@@ -3,7 +3,7 @@
     "target": "ES2020",
     "module": "commonjs",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../cnc-tools/backend/src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -11,17 +11,17 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "../cnc-tools/backend/src/*"
       ]
     }
   },
   "include": [
-    "src/**/*"
+    "../cnc-tools/backend/src/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "python_code",
-    "sample code"
+    "../cnc-tools/backend/sample code"
   ]
 }
