@@ -1,16 +1,17 @@
 /**
  * QA Manager Service
- * Updated: 25/05/25
+ * Updated: 08/06/2025
  * Author: Deej Potter
- * Description: Manages question-answer pairs in the database
+ * Description: This file contains the QAManager class, responsible for managing and retrieving question-answer pairs from the data source.
  */
 
+import { DataProvider } from "../data/DataProvider";
 import { MongoDBProvider } from "../data/MongoDBProvider";
-import { DatabaseResponse } from "../types/mongodb";
+import { DatabaseResponse } from "../types/mongodb"; // Added import for DatabaseResponse
 import { QAPair } from "../types/chat";
 
 export class QAManager {
-	private dataProvider: MongoDBProvider;
+	private dataProvider: DataProvider; // Use interface type
 	private readonly collectionName = "qa_pairs";
 
 	constructor() {

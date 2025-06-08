@@ -1,4 +1,11 @@
 /**
+ * Index Router for API
+ * Updated: 08/06/2025
+ * Author: Deej Potter
+ * Description: This file serves as the main router, aggregating all other specific route modules for the API.
+ */
+
+/**
  * API Routes
  * Updated: 25/05/25
  * Author: Deej Potter
@@ -6,7 +13,7 @@
  */
 
 import express, { Request, Response } from "express";
-import { logger } from "../app";
+import { logger } from "../utils/logger"; // Corrected import path
 import { ChatEngine } from "../services/chat-engine";
 import { QAManager } from "../services/qa-manager";
 import { ChatResponse, QAPair } from "../types/chat";
@@ -48,12 +55,20 @@ router.post(
 			const botResponse = await chatEngine.processUserInput(user_message);
 			res.status(200).json({ bot_response: botResponse });
 		} catch (error) {
-			if (error instanceof TypeError || error.name === "KeyError") {
-				logger.error(`KeyError occurred: ${error.message}`);
-				res.status(400).json({ bot_response: `Error: ${error.message}` });
-			} else if (error instanceof Error) {
-				logger.error(`An unexpected error occurred: ${error.message}`);
-				res.status(500).json({ bot_response: error.message });
+			// Check if error is an instance of Error to safely access its properties
+			if (error instanceof Error) {
+				// Further check for specific error names if needed, though TypeError is an Error instance
+				if (error.name === "KeyError" || error instanceof TypeError) {
+					logger.error(`KeyError or TypeError occurred: ${error.message}`);
+					res.status(400).json({ bot_response: `Error: ${error.message}` });
+				} else {
+					logger.error(`An unexpected error occurred: ${error.message}`);
+					res.status(500).json({ bot_response: `Error: ${error.message}` });
+				}
+			} else {
+				// Handle cases where the error is not an Error instance
+				logger.error("An unexpected non-error object was thrown:", error);
+				res.status(500).json({ bot_response: "An unexpected error occurred." });
 			}
 		}
 	}

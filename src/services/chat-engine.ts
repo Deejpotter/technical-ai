@@ -1,107 +1,145 @@
 /**
  * Chat Engine Service
- * Updated: 25/05/25
+ * Updated: 08/06/2025
  * Author: Deej Potter
- * Description: Handles chat interactions and responses using AI
+ * Description: This file provides the ChatEngine class, responsible for handling chat interactions, context management, and AI model communication.
  */
 
-import { Configuration, OpenAIApi } from "openai";
+import OpenAI from "openai";
 import { ChatMessage } from "../types/chat";
-import { MongoDBProvider } from "../data/MongoDBProvider";
-import { logger } from "../app";
+import { DataProvider } from "../data/DataProvider";
+import { MongoDBProvider } from "../data/MongoDBProvider"; // Corrected import path
+import { logger } from "../utils/logger"; // Corrected import path
 
 export class ChatEngine {
-	private openai: OpenAIApi;
-	private dataProvider: MongoDBProvider;
+	private openai: OpenAI;
+	private dataProvider: DataProvider;
 	private readonly collectionName = "chat_history";
 
 	constructor() {
-		const configuration = new Configuration({
+		this.openai = new OpenAI({
 			apiKey: process.env.OPENAI_API_KEY,
 		});
-		this.openai = new OpenAIApi(configuration);
 		this.dataProvider = new MongoDBProvider();
 	}
 
 	/**
-	 * Process user input and generate a response
+	 * Process user input and get a response from the AI model.
+	 * @param userInput The user's message.
+	 * @returns The AI's response.
 	 */
-	async processUserInput(userMessage: string): Promise<string> {
+	async processUserInput(userInput: string): Promise<string> {
 		try {
-			const completion = await this.openai.createChatCompletion({
-				model: process.env.GPT_MODEL || "gpt-3.5-turbo",
-				messages: [
-					{
-						role: "system",
-						content:
-							"You are a helpful CNC machine technical support assistant. Answer questions about CNC machines, their operation, maintenance, and troubleshooting.",
-					},
-					{
-						role: "user",
-						content: userMessage,
-					},
-				],
-			});
-
-			const botResponse =
-				completion.data.choices[0]?.message?.content ||
-				"Sorry, I could not generate a response.";
-
-			// Store the conversation in chat history
-			await this.storeConversation(userMessage, botResponse);
-
-			return botResponse;
-		} catch (error) {
-			logger.error("Error processing user input:", error);
-			throw error;
-		}
-	}
-
-	/**
-	 * Store conversation in chat history
-	 */
-	private async storeConversation(
-		userMessage: string,
-		botResponse: string
-	): Promise<void> {
-		try {
-			const chatMessage: Omit<ChatMessage, "_id"> = {
-				user_message: userMessage,
-				bot_response: botResponse,
+			// 1. Store user message
+			const userMessage: ChatMessage = {
+				role: "user",
+				content: userInput,
 				timestamp: new Date(),
 			};
+			await this.dataProvider.createDocument<ChatMessage>(
+				this.collectionName,
+				userMessage
+			);
 
-			await this.dataProvider.createDocument(this.collectionName, chatMessage);
-		} catch (error) {
-			logger.error("Error storing conversation:", error);
-			// Don't throw the error as this is not critical for the chat functionality
+			// 2. Fetch chat history
+			const historyResponse =
+				await this.dataProvider.getAllDocuments<ChatMessage>(
+					this.collectionName
+				);
+			let history: ChatMessage[] = [];
+			if (historyResponse.success && historyResponse.data) {
+				history = historyResponse.data;
+			}
+
+			// 3. Prepare messages for OpenAI API
+			const messages: OpenAI.Chat.ChatCompletionMessageParam[] = history.map(
+				(msg) => ({
+					role: msg.role,
+					content: msg.content,
+				})
+			);
+			// Add current user input to the messages array
+			messages.push({ role: "user", content: userInput });
+
+			// 4. Get AI response
+			const completion = await this.openai.chat.completions.create({
+				model: "gpt-3.5-turbo",
+				messages: messages,
+			});
+
+			const botResponseContent = completion.choices[0]?.message?.content;
+
+			if (!botResponseContent) {
+				logger.error("OpenAI response content is null or undefined.");
+				throw new Error("Failed to get a valid response from the AI model.");
+			}
+
+			// 5. Store AI response
+			const botMessage: ChatMessage = {
+				role: "assistant",
+				content: botResponseContent,
+				timestamp: new Date(),
+			};
+			await this.dataProvider.createDocument<ChatMessage>(
+				this.collectionName,
+				botMessage
+			);
+
+			return botResponseContent;
+		} catch (error: any) {
+			logger.error("Error processing user input in ChatEngine:", error);
+			throw new Error(`ChatEngine processing failed: ${error.message}`);
 		}
 	}
 
 	/**
-	 * Get chat history
+	 * Retrieves the full chat history.
+	 * @returns A promise that resolves to an array of chat messages.
 	 */
 	async getChatHistory(): Promise<ChatMessage[]> {
-		const response = await this.dataProvider.getAllDocuments<ChatMessage>(
-			this.collectionName
-		);
-		return response.success ? response.data || [] : [];
+		try {
+			const response = await this.dataProvider.getAllDocuments<ChatMessage>(
+				this.collectionName
+			);
+			if (response.success && response.data) {
+				return response.data;
+			}
+			logger.warn("No chat history found or failed to retrieve.");
+			return [];
+		} catch (error: any) {
+			logger.error("Error retrieving chat history:", error);
+			return []; // Return empty array on error
+		}
 	}
 
 	/**
-	 * Clear chat history
+	 * Clears the chat history.
+	 * This is a destructive operation and should be used with caution.
+	 * For simplicity, this example deletes all documents. In a real app,
+	 * you might soft-delete or archive based on conversation IDs.
 	 */
 	async clearChatHistory(): Promise<void> {
-		// This is a simplified version. In production, you might want to archive instead of delete
-		// or implement a soft delete mechanism
-		const history = await this.getChatHistory();
-		for (const message of history) {
-			if (message._id) {
-				await this.dataProvider.deleteDocument(
-					this.collectionName,
-					message._id.toString()
+		try {
+			// Fetch all document IDs to delete them one by one if no "deleteMany" is available
+			// Or, if your DataProvider supported a deleteMany or clearCollection, that would be more efficient.
+			const historyResponse =
+				await this.dataProvider.getAllDocuments<ChatMessage>(
+					this.collectionName
 				);
+			if (historyResponse.success && historyResponse.data) {
+				for (const message of historyResponse.data) {
+					if (message._id) {
+						// Ensure _id exists
+						await this.dataProvider.deleteDocument(
+							this.collectionName,
+							message._id.toString()
+						);
+					}
+				}
 			}
+			logger.info("Chat history cleared.");
+		} catch (error: any) {
+			logger.error("Error clearing chat history:", error);
 		}
 	}
 }

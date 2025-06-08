@@ -1,7 +1,7 @@
 {
-  "name": "cnc-technical-ai",
+  "name": "technical-ai",
   "version": "1.0.0",
-  "description": "A chatbot that provides detailed technical information about CNC machines and related products. Built with Express.js, TypeScript, and OpenAI's GPT-3.",
+  "description": "A chatbot that provides detailed technical information. Built with Express.js, TypeScript, and OpenAI's GPT-3.",
   "main": "dist/app.js",
   "scripts": {
     "build": "tsc",
@@ -15,15 +15,17 @@
   "keywords": [],
   "author": "Deej Potter <deejpotter@gmail.com>",
   "license": "ISC",
-  "repository": "git@github.com:Deejpotter/cnc-technical-ai.git",
+  "repository": "git@github.com:Deejpotter/technical-ai.git",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
+    "endent": "^2.1.0",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
     "mongodb": "^6.1.0",
     "mongoose": "^8.0.0",
     "openai": "^4.103.0",
+    "pdf-ts": "^0.0.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.17.0"

@@ -1,6 +1,8 @@
 /**
- * Main Express App
- * Integrates all API routes for CNC Technical AI backend.
+ * Main Express Application
+ * Updated: 08/06/2025
+ * Author: Deej Potter
+ * Description: This file initializes and configures the Express application, including middleware and route setup.
  */
 import express from "express";
 import cors from "cors";

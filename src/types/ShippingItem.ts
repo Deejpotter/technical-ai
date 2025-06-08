@@ -1,12 +1,19 @@
+/**
+ * Shipping Item Interface
+ * Updated: 08/06/2025
+ * Author: Deej Potter
+ * Description: This file defines the TypeScript interface for a ShippingItem, detailing its properties and dimensions for packing.
+ */
+
 import { MongoDocument } from "./mongodb";
 
 /**
- * ShippingItem Interface (migrated from sample code)
- * Updated: 2025-06-08
- * Author: Deej Potter (original), migrated by Daniel
- *
- * NOTE: This file was migrated from sample code/types/box-shipping-calculator/ShippingItem.ts
- * and adapted for backend use. Comments and logic have been preserved and improved.
+ * ShippingItem Interface
+ * Updated: 08/06/2025
+ * Author: Deej Potter
+ * Description: Defines the structure for a single shipping item, including its properties and dimensions.
+ * Inherits from MongoDocument for database compatibility.
+ * Migrated from sample code and adapted for backend use.
  */
 
 export default interface ShippingItem extends MongoDocument {

@@ -33,3 +33,38 @@
 
 - Migrating calculation utilities from `sample code/app/table-enclosure-calculator/` to `src/services/`
 - Migrating box shipping types from `sample code/types/box-shipping-calculator/` to `src/types/`
+
+## [2025-06-08] Migrated `table-enclosure-calc.ts`
+
+- Migrated all functions from `sample code/app/table-enclosure-calculator/calcUtils.ts` to `src/services/table-enclosure-calc.ts`.
+- Updated import paths to use `./table-enclosure-constants`.
+- Added explicit types for `doorPanels` and `panels` arrays to resolve TypeScript errors.
+- Added default fallbacks for `EXTRUSION_OPTIONS.find()` calls to prevent potential runtime errors if an extrusion profile is not found, ensuring `extrusion2020` and `extrusion2040` are always defined.
+- Renamed exported constants from original file to `CALCULATION_CONSTANTS` to avoid potential naming conflicts.
+
+## [2025-06-08] Standardized File Header Comments
+
+- Added consistent top-level JSDoc-style comments to all TypeScript files in the `src/` directory.
+- Ensured comments include 'Updated', 'Author', and 'Description' fields, matching the user's preferred style.
+
+## [2025-06-09] DataProvider and MongoDB Connection Logic Migration
+
+- Migrated `DataProvider` interface to `src/data/DataProvider.ts`.
+- Migrated MongoDB connection logic to `src/data/mongodb.ts` and created a sample `.env` file.
+
+## [2025-06-09] Project Renaming and Continued Migration
+
+- Renamed project from "cnc-technical-ai" to "technical-ai".
+  - Updated `package.json` (name, description, repository URL).
+  - Updated `README.md` (title, overview).
+  - Updated filepath comment in `src/utils/logger.ts`.
+- Continued migration of `DataProvider` interface and MongoDB connection logic.
+
+## [2025-06-08] AI Chat Endpoint Implementation
+
+- Migrated `sample code/app/actions/chat.ts` and `sample code/utils/chatStream.ts` to `src/services/aiService.ts` and `src/utils/chatStream.ts` respectively.
+- Installed `endent` package.
+- Created `ChatBody` interface in `src/types/chat.ts`.
+- Implemented the `POST /api/ai/chat` endpoint in `src/routes/ai.ts`.
+  - Added Swagger JSDoc comments for the endpoint.
+  - Ensured proper handling of WHATWG ReadableStream for streaming responses.

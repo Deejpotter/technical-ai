@@ -1,8 +1,8 @@
-# CNC Technical AI Backend
+# Technical AI Backend
 
 ## Overview
 
-This project is a centralized Express.js backend API for CNC-related AI and business logic, designed to serve multiple frontend applications. It uses TypeScript, OpenAI/Anthropic APIs, and Netlify Identity for authentication.
+This project is a centralized Express.js backend API for technical AI and business logic, designed to serve multiple frontend applications. It uses TypeScript, OpenAI/Anthropic APIs, and Netlify Identity for authentication.
 
 ## Architecture & Implementation Plan
 

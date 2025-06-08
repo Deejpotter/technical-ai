@@ -1,6 +1,7 @@
+// filepath: c:/Users/Deej/Repos/technical-ai/src/utils/chatStream.ts
 /**
  * chatStream
- * Updated: 05/13/2025
+ * Updated: 08/07/2025
  * Author: Deej Potter
  * Description: Stream handling utility for OpenAI chat completions API.
  * Simplified implementation for development purposes.
@@ -8,6 +9,7 @@
  */
 
 import endent from "endent";
+import { Readable } from "stream";
 
 /**
  * Creates a formatted prompt from input code
@@ -28,7 +30,8 @@ export const OpenAIStream = async (
 	inputCode: string,
 	model: string,
 	key: string | undefined
-) => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<ReadableStream<any>> => {
 	const prompt = createPrompt(inputCode);
 	const system = { role: "system", content: prompt };
 
@@ -37,9 +40,7 @@ export const OpenAIStream = async (
 		const response = await fetch(`https://api.openai.com/v1/chat/completions`, {
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${
-					key || process.env.NEXT_PUBLIC_OPENAI_API_KEY
-				}`,
+				Authorization: `Bearer ${key || process.env.OPENAI_API_KEY}`, // Ensure OPENAI_API_KEY is used from .env
 			},
 			method: "POST",
 			body: JSON.stringify({
@@ -51,7 +52,14 @@ export const OpenAIStream = async (
 		});
 
 		if (!response.ok) {
-			throw new Error(`OpenAI API returned an error: ${response.statusText}`);
+			const errorText = await response.text();
+			console.error(
+				`OpenAI API returned an error: ${response.status} ${response.statusText}`,
+				errorText
+			);
+			throw new Error(
+				`OpenAI API returned an error: ${response.status} ${response.statusText}`
+			);
 		}
 
 		const result = await response.json();

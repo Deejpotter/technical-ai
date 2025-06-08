@@ -1,12 +1,18 @@
+/**
+ * Shipping Item List Interface
+ * Updated: 08/06/2025
+ * Author: Deej Potter
+ * Description: This file defines the TypeScript interface for a list of shipping items, used in packing and calculation contexts.
+ */
+
 import ShippingItem from "./ShippingItem";
 
 /**
- * ShippingItemList Interface (migrated from sample code)
- * Updated: 2025-06-08
- * Author: Deej Potter (original), migrated by Daniel
- *
- * NOTE: This file was migrated from sample code/types/box-shipping-calculator/ShippingItemList.ts
- * and adapted for backend use. Comments and logic have been preserved and improved.
+ * ShippingItemList Interface
+ * Updated: 08/06/2025
+ * Author: Deej Potter
+ * Description: Defines the structure for a list of shipping items, typically used for packing calculations.
+ * Migrated from sample code and adapted for backend use.
  */
 
 export default interface ShippingItemList {

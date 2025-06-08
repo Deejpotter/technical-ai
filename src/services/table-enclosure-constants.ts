@@ -1,10 +1,8 @@
 /**
- * Table and Enclosure Calculator Constants (migrated from sample code)
- * Updated: 2025-06-08
- * Author: Deej Potter (original), migrated by Daniel
- *
- * NOTE: This file was migrated from sample code/app/table-enclosure-calculator/constants.ts
- * and adapted for backend use. Comments and logic have been preserved and improved.
+ * Table and Enclosure Calculator Constants
+ * Updated: 08/06/2025
+ * Author: Deej Potter
+ * Description: This file contains constants and type definitions used by the table and enclosure calculation service.
  */
 
 export interface MaterialType {
