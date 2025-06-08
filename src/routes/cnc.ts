@@ -18,7 +18,7 @@ import {
 	calculateMountingMaterials,
 	calculateDoorMaterials,
 	Dimensions as TableEnclosureDimensions,
-} from "@/services/table-enclosure-calc";
+} from "../services/table-enclosure-calc"; // Changed from @/services/table-enclosure-calc
 
 const router = Router();
 

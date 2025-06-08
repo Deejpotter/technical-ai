@@ -12,8 +12,8 @@ import {
 	NextFunction,
 	RequestHandler,
 } from "express"; // Added RequestHandler
-import { AIService } from "@/services/aiService";
-import { ChatBody } from "@/types/chat";
+import { AIService } from "../services/aiService"; // Changed from @/services/aiService
+import { ChatBody } from "../types/chat"; // Changed from @/types/chat
 
 const router = Router();
 const aiService = new AIService();
