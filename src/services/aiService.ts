@@ -6,9 +6,7 @@
  * Description: Handles AI-related logic, such as chat interactions with OpenAI.
  */
 
-// import { OpenAIStream } from "@/utils/chatStream"; // Removed unused import
-import { ChatBody } from "@/types/chat";
-// import { logger } from "@/utils/logger"; // Removed unused import
+import { ChatBody } from "../types/chat"; // Changed from @/types/chat
 
 export class AIService {
 	/**
