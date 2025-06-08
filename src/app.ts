@@ -22,4 +22,11 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/cnc", cncRoutes);
 app.use("/api/shipping", shippingRoutes);
 
+// Start the server on the specified port.
+const port = process.env.PORT;
+app.listen(port, () => {
+	console.log(`Express server listening on port ${port}`);
+});
+
+// Export app for testing purposes (Jest, Supertest, etc.)
 export default app;

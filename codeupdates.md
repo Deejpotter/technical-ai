@@ -68,3 +68,10 @@
 - Implemented the `POST /api/ai/chat` endpoint in `src/routes/ai.ts`.
   - Added Swagger JSDoc comments for the endpoint.
   - Ensured proper handling of WHATWG ReadableStream for streaming responses.
+
+## [2025-06-09] Express Server Start Logic (completed)
+
+- Confirmed that the app now starts the Express server and listens on the correct port for both local and deployment environments.
+- Updated `README.md` and `codingconventions.md` with port binding info.
+- Ran `yarn build` and `yarn test` successfully after the change.
+- This resolves the Render deployment issue: the app will now keep a port open as required.
