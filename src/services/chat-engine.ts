@@ -9,7 +9,6 @@ import OpenAI from "openai";
 import { ChatMessage } from "../types/chat";
 import { DataProvider } from "../data/DataProvider";
 import { MongoDBProvider } from "../data/MongoDBProvider"; // Corrected import path
-import { logger } from "../utils/logger"; // Corrected import path
 
 export class ChatEngine {
 	private openai: OpenAI;
@@ -70,7 +69,6 @@ export class ChatEngine {
 			const botResponseContent = completion.choices[0]?.message?.content;
 
 			if (!botResponseContent) {
-				logger.error("OpenAI response content is null or undefined.");
 				throw new Error("Failed to get a valid response from the AI model.");
 			}
 
@@ -87,7 +85,6 @@ export class ChatEngine {
 
 			return botResponseContent;
 		} catch (error: any) {
-			logger.error("Error processing user input in ChatEngine:", error);
 			throw new Error(`ChatEngine processing failed: ${error.message}`);
 		}
 	}
@@ -104,10 +101,8 @@ export class ChatEngine {
 			if (response.success && response.data) {
 				return response.data;
 			}
-			logger.warn("No chat history found or failed to retrieve.");
 			return [];
 		} catch (error: any) {
-			logger.error("Error retrieving chat history:", error);
 			return []; // Return empty array on error
 		}
 	}
@@ -137,9 +132,8 @@ export class ChatEngine {
 					}
 				}
 			}
-			logger.info("Chat history cleared.");
 		} catch (error: any) {
-			logger.error("Error clearing chat history:", error);
+			// Handle error
 		}
 	}
 }

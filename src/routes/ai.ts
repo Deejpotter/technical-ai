@@ -14,7 +14,6 @@ import {
 } from "express"; // Added RequestHandler
 import { AIService } from "@/services/aiService";
 import { ChatBody } from "@/types/chat";
-import { logger } from "@/utils/logger";
 
 const router = Router();
 const aiService = new AIService();
@@ -93,7 +92,6 @@ const handleChatRequest: RequestHandler = async (
 			}
 			res.end();
 		} catch (streamError) {
-			logger.error("Error streaming AI response:", streamError);
 			if (!res.headersSent) {
 				// Let the main error handler deal with it by re-throwing or passing to next
 				// If this specific error should be handled differently, adjust here.
@@ -106,7 +104,6 @@ const handleChatRequest: RequestHandler = async (
 			}
 		}
 	} catch (error) {
-		logger.error("Error in /api/ai/chat handler:", error);
 		next(error); // Pass error to the Express error handler
 	}
 };

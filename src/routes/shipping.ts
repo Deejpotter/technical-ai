@@ -28,7 +28,6 @@ import {
 } from "../services/box-shipping-calculations";
 import { MultiBoxPackingResult } from "../types/box-shipping-types";
 import ShippingBox from "../types/ShippingBox";
-import { logger } from "@/utils/logger";
 
 const router = Router();
 
@@ -149,7 +148,6 @@ const getShippingItems: RequestHandler = async (req, res, next) => {
 			res.status(response.status || 500).json(response);
 		}
 	} catch (error) {
-		logger.error("Error fetching shipping items:", error);
 		next(error);
 	}
 };
@@ -158,7 +156,6 @@ const getAvailableBoxes: RequestHandler = (req, res, next) => {
 	try {
 		res.status(200).json(availableBoxes);
 	} catch (error) {
-		logger.error("Error fetching standard boxes:", error);
 		next(error);
 	}
 };
@@ -167,19 +164,16 @@ const calculateBestBoxHandler: RequestHandler = (req, res, next) => {
 	try {
 		const itemsToPack: ShippingItem[] = req.body;
 		if (!Array.isArray(itemsToPack) || itemsToPack.length === 0) {
-			res
-				.status(400)
-				.json({
-					success: false,
-					message: "Request body must be a non-empty array of ShippingItem.",
-				});
+			res.status(400).json({
+				success: false,
+				message: "Request body must be a non-empty array of ShippingItem.",
+			});
 			return;
 		}
 		// TODO: Add more detailed validation for each item in itemsToPack
 		const result = findBestBox(itemsToPack);
 		res.status(200).json(result);
 	} catch (error) {
-		logger.error("Error in /calculate-best-box:", error);
 		next(error);
 	}
 };
@@ -188,12 +182,10 @@ const packMultipleBoxesHandler: RequestHandler = (req, res, next) => {
 	try {
 		const itemsToPack: ShippingItem[] = req.body;
 		if (!Array.isArray(itemsToPack) || itemsToPack.length === 0) {
-			res
-				.status(400)
-				.json({
-					success: false,
-					message: "Request body must be a non-empty array of ShippingItem.",
-				});
+			res.status(400).json({
+				success: false,
+				message: "Request body must be a non-empty array of ShippingItem.",
+			});
 			return;
 		}
 		// TODO: Add more detailed validation for each item in itemsToPack
@@ -201,7 +193,6 @@ const packMultipleBoxesHandler: RequestHandler = (req, res, next) => {
 			packItemsIntoMultipleBoxes(itemsToPack);
 		res.status(200).json(result);
 	} catch (error) {
-		logger.error("Error in /pack-multiple-boxes:", error);
 		next(error);
 	}
 };

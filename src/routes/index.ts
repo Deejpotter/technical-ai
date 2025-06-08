@@ -13,7 +13,6 @@
  */
 
 import express, { Request, Response } from "express";
-import { logger } from "../utils/logger"; // Corrected import path
 import { ChatEngine } from "../services/chat-engine";
 import { QAManager } from "../services/qa-manager";
 import { ChatResponse, QAPair } from "../types/chat";
@@ -51,24 +50,31 @@ router.post(
 		res: Response<ChatResponse>
 	) => {
 		try {
-			const { user_message } = req.body;
-			const botResponse = await chatEngine.processUserInput(user_message);
-			res.status(200).json({ bot_response: botResponse });
-		} catch (error) {
-			// Check if error is an instance of Error to safely access its properties
-			if (error instanceof Error) {
-				// Further check for specific error names if needed, though TypeError is an Error instance
-				if (error.name === "KeyError" || error instanceof TypeError) {
-					logger.error(`KeyError or TypeError occurred: ${error.message}`);
-					res.status(400).json({ bot_response: `Error: ${error.message}` });
-				} else {
-					logger.error(`An unexpected error occurred: ${error.message}`);
-					res.status(500).json({ bot_response: `Error: ${error.message}` });
-				}
+			const userMessage = req.body.user_message;
+			const botResponse = await chatEngine.processUserInput(userMessage);
+			res.json({ bot_response: botResponse });
+		} catch (error: any) {
+			if (error instanceof TypeError || error.name === "KeyError") {
+				// logger.error(`KeyError or TypeError occurred: ${error.message}`);
+				console.error(`KeyError or TypeError occurred: ${error.message}`);
+				res.status(500).json({
+					bot_response: "", // Added to satisfy ChatResponse type
+					error: "An error occurred while processing your request.",
+				});
+			} else if (error instanceof Error) {
+				// logger.error(`An unexpected error occurred: ${error.message}`);
+				console.error(`An unexpected error occurred: ${error.message}`);
+				res.status(500).json({
+					bot_response: "", // Added to satisfy ChatResponse type
+					error: "An unexpected error occurred.",
+				});
 			} else {
-				// Handle cases where the error is not an Error instance
-				logger.error("An unexpected non-error object was thrown:", error);
-				res.status(500).json({ bot_response: "An unexpected error occurred." });
+				// logger.error("An unexpected non-error object was thrown:", error);
+				console.error("An unexpected non-error object was thrown:", error);
+				res.status(500).json({
+					bot_response: "", // Added to satisfy ChatResponse type
+					error: "An unexpected error occurred.",
+				});
 			}
 		}
 	}

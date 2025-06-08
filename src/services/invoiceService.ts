@@ -10,10 +10,9 @@ import OpenAI from "openai";
 import { pdfToText } from "pdf-ts";
 import ShippingItem from "../types/ShippingItem";
 import { DataService } from "../data/DataService";
-import { logger } from "../utils/logger"; // Corrected logger import
 import {
-	ExtractedInvoiceItem,
-	EstimatedItemWithDimensions,
+	ExtractedInvoiceItem, // Ensure this is imported
+	EstimatedItemWithDimensions, // Ensure this is imported
 } from "../types/invoice";
 
 // Initialize OpenAI client
@@ -37,9 +36,12 @@ export async function extractTextFromFile(
 	fileName: string
 ): Promise<string> {
 	if (!fileBuffer || fileBuffer.length === 0) {
-		logger.error(
+		// logger.error( // Removed logger usage
+		// 	"extractTextFromFile: No file buffer provided or buffer is empty."
+		// );
+		console.error(
 			"extractTextFromFile: No file buffer provided or buffer is empty."
-		);
+		); // Replaced logger with console.error
 		throw new Error("No file content provided.");
 	}
 
@@ -54,17 +56,25 @@ export async function extractTextFromFile(
 			const uint8Array = new Uint8Array(fileBuffer);
 			textContent = await pdfToText(uint8Array);
 			if (!textContent) {
-				logger.warn(
+				// logger.warn( // Replaced logger with console.warn
+				// 	"extractTextFromFile: pdfToText returned empty or undefined text for PDF.",
+				// 	{ fileName }
+				// );
+				console.warn(
 					"extractTextFromFile: pdfToText returned empty or undefined text for PDF.",
 					{ fileName }
 				);
 				throw new Error("pdfToText returned empty or undefined text.");
 			}
 		} catch (error: any) {
-			logger.error("extractTextFromFile: Failed to extract text from PDF.", {
+			// logger.error("extractTextFromFile: Failed to extract text from PDF.", {
+			// 	fileName,
+			// 	error: error.message,
+			// });
+			console.error("extractTextFromFile: Failed to extract text from PDF.", {
 				fileName,
 				error: error.message,
-			});
+			}); // Replaced logger with console.error
 			throw new Error(`Failed to extract text from PDF: ${error.message}`);
 		}
 	} else if (
@@ -74,48 +84,68 @@ export async function extractTextFromFile(
 		try {
 			textContent = fileBuffer.toString("utf-8");
 			if (!textContent) {
-				logger.warn(
+				// logger.warn( // Replaced logger with console.warn
+				// 	"extractTextFromFile: toString returned empty or undefined text for text file.",
+				// 	{ fileName }
+				// );
+				console.warn(
 					"extractTextFromFile: toString returned empty or undefined text for text file.",
 					{ fileName }
 				);
 				throw new Error("Text file content is empty or unreadable.");
 			}
 		} catch (error: any) {
-			logger.error(
+			// logger.error(
+			// 	"extractTextFromFile: Failed to extract text from plain text file.",
+			// 	{ fileName, error: error.message }
+			// );
+			console.error(
 				"extractTextFromFile: Failed to extract text from plain text file.",
 				{ fileName, error: error.message }
-			);
+			); // Replaced logger with console.error
 			throw new Error(
 				`Failed to extract text from plain text file: ${error.message}`
 			);
 		}
 	} else {
-		logger.error("extractTextFromFile: Unsupported file type.", {
+		// logger.error("extractTextFromFile: Unsupported file type.", {
+		// 	fileType,
+		// 	fileName,
+		// });
+		console.error("extractTextFromFile: Unsupported file type.", {
 			fileType,
 			fileName,
-		});
+		}); // Replaced logger with console.error
 		throw new Error(
 			`Unsupported file type: ${fileType || fileName.split(".").pop()}`
 		);
 	}
 
 	if (typeof textContent !== "string") {
-		logger.error(
+		// logger.error(
+		// 	"extractTextFromFile: Extracted file content is not a string.",
+		// 	{ fileName }
+		// );
+		console.error(
 			"extractTextFromFile: Extracted file content is not a string.",
 			{ fileName }
-		);
+		); // Replaced logger with console.error
 		throw new Error("Extracted file content is not a string.");
 	}
 	if (!textContent.trim()) {
-		logger.warn(
+		// logger.warn( // Replaced logger with console.warn
+		// 	"extractTextFromFile: File appears to be empty or unreadable after processing.",
+		// 	{ fileName }
+		// );
+		console.warn(
 			"extractTextFromFile: File appears to be empty or unreadable after processing.",
 			{ fileName }
 		);
 		throw new Error("File appears to be empty or unreadable.");
 	}
-	logger.info("extractTextFromFile: Text extracted successfully.", {
-		fileName,
-	});
+	// logger.info("extractTextFromFile: Text extracted successfully.", {
+	// 	fileName,
+	// });
 	return textContent;
 }
 
@@ -127,7 +157,8 @@ export async function extractTextFromFile(
  */
 async function processWithAI(text: string): Promise<ExtractedInvoiceItem[]> {
 	if (!text || !text.trim()) {
-		logger.warn("processWithAI: Input text is empty.");
+		// logger.warn("processWithAI: Input text is empty.");
+		console.warn("processWithAI: Input text is empty."); // Replaced logger with console.warn
 		throw new Error("Input text for AI processing is empty.");
 	}
 	try {
@@ -192,39 +223,52 @@ async function processWithAI(text: string): Promise<ExtractedInvoiceItem[]> {
 
 		const functionCall = response.choices[0]?.message?.function_call;
 		if (!functionCall?.arguments) {
-			logger.error(
+			// logger.error(
+			// 	"processWithAI: No function call arguments received from OpenAI."
+			// );
+			console.error(
 				"processWithAI: No function call arguments received from OpenAI."
-			);
+			); // Replaced logger with console.error
 			throw new Error("No function call arguments received from OpenAI.");
 		}
 
 		const parsedArgs = JSON.parse(functionCall.arguments);
 		if (!parsedArgs.items || !Array.isArray(parsedArgs.items)) {
-			logger.error(
+			// logger.error(
+			// 	"processWithAI: Parsed arguments from OpenAI do not contain a valid 'items' array.",
+			// 	{ args: functionCall.arguments }
+			// );
+			console.error(
 				"processWithAI: Parsed arguments from OpenAI do not contain a valid 'items' array.",
 				{ args: functionCall.arguments }
-			);
+			); // Replaced logger with console.error
 			throw new Error("AI response does not contain a valid 'items' array.");
 		}
-		logger.info("processWithAI: Items extracted successfully by AI.", {
-			itemCount: parsedArgs.items.length,
-		});
+		// logger.info("processWithAI: Items extracted successfully by AI.", {
+		// 	itemCount: parsedArgs.items.length,
+		// });
 		return parsedArgs.items as ExtractedInvoiceItem[];
 	} catch (error: any) {
 		if (
 			error?.error?.type === "invalid_request_error" &&
 			error?.error?.code === "context_length_exceeded"
 		) {
-			logger.warn("processWithAI: OpenAI context length exceeded.", {
+			// logger.warn("processWithAI: OpenAI context length exceeded.", {
+			// 	error: error.message,
+			// });
+			console.warn("processWithAI: OpenAI context length exceeded.", {
 				error: error.message,
-			});
+			}); // Replaced logger with console.warn
 			throw new Error(
 				"Invoice text is too long for AI processing. Please try with a shorter invoice or chunk the text."
 			);
 		}
-		logger.error("processWithAI: Failed to process invoice text with AI.", {
+		// logger.error("processWithAI: Failed to process invoice text with AI.", {
+		// 	error: error.message,
+		// });
+		console.error("processWithAI: Failed to process invoice text with AI.", {
 			error: error.message,
-		});
+		}); // Replaced logger with console.error
 		throw new Error(`Failed to process invoice with AI: ${error.message}`);
 	}
 }
@@ -237,7 +281,8 @@ async function processWithAI(text: string): Promise<ExtractedInvoiceItem[]> {
 export async function extractInvoiceItemsFromText(
 	text: string
 ): Promise<ExtractedInvoiceItem[]> {
-	logger.info("extractInvoiceItemsFromText: Starting AI item extraction.");
+	// logger.info("extractInvoiceItemsFromText: Starting AI item extraction.");
+	console.info("extractInvoiceItemsFromText: Starting AI item extraction."); // Replaced logger with console.info
 	return await processWithAI(text);
 }
 
@@ -250,9 +295,12 @@ async function estimateItemDimensionsAI(
 	items: ExtractedInvoiceItem[]
 ): Promise<EstimatedItemWithDimensions[]> {
 	if (!items || items.length === 0) {
-		logger.info(
+		// logger.info(
+		// 	"estimateItemDimensionsAI: No items provided for dimension estimation."
+		// );
+		console.info(
 			"estimateItemDimensionsAI: No items provided for dimension estimation."
-		);
+		); // Replaced logger with console.info
 		return [];
 	}
 	try {
@@ -344,18 +392,25 @@ async function estimateItemDimensionsAI(
 
 		const functionCall = response.choices[0]?.message?.function_call;
 		if (!functionCall?.arguments) {
-			logger.error(
+			// logger.error(
+			// 	"estimateItemDimensionsAI: No function call arguments received from OpenAI for dimension estimation."
+			// );
+			console.error(
 				"estimateItemDimensionsAI: No function call arguments received from OpenAI for dimension estimation."
-			);
+			); // Replaced logger with console.error
 			throw new Error("No dimension estimates received from OpenAI.");
 		}
 
 		const parsedArgs = JSON.parse(functionCall.arguments);
 		if (!parsedArgs.items || !Array.isArray(parsedArgs.items)) {
-			logger.error(
+			// logger.error(
+			// 	"estimateItemDimensionsAI: Parsed arguments from OpenAI do not contain a valid 'items' array for dimensions.",
+			// 	{ args: functionCall.arguments }
+			// );
+			console.error(
 				"estimateItemDimensionsAI: Parsed arguments from OpenAI do not contain a valid 'items' array for dimensions.",
 				{ args: functionCall.arguments }
-			);
+			); // Replaced logger with console.error
 			throw new Error(
 				"AI response for dimensions does not contain a valid 'items' array."
 			);
@@ -378,16 +433,20 @@ async function estimateItemDimensionsAI(
 					height: aiItem.height,
 				};
 			});
-		logger.info(
-			"estimateItemDimensionsAI: Dimensions estimated successfully by AI.",
-			{ itemCount: estimatedItemsWithDimensions.length }
-		);
+		// logger.info(
+		// 	"estimateItemDimensionsAI: Dimensions estimated successfully by AI.",
+		// 	{ itemCount: estimatedItemsWithDimensions.length }
+		// );
 		return estimatedItemsWithDimensions;
 	} catch (error: any) {
-		logger.error(
+		// logger.error(
+		// 	"estimateItemDimensionsAI: Dimension estimation with AI failed. Falling back to default dimensions.",
+		// 	{ error: error.message }
+		// );
+		console.error(
 			"estimateItemDimensionsAI: Dimension estimation with AI failed. Falling back to default dimensions.",
 			{ error: error.message }
-		);
+		); // Replaced logger with console.error
 		// Fallback to default dimensions if AI estimation fails
 		return items.map((item) => ({
 			...item, // name, sku, weight (original in kg), quantity
@@ -415,10 +474,14 @@ function logSuspiciousWeight(
 			item.name
 		)
 	) {
-		logger.warn(
+		// logger.warn(
+		// 	`[logSuspiciousWeight] Suspiciously high weight (${item.weight}kg) for item '${item.name}' (SKU: ${item.sku}) from ${source}.`,
+		// 	item
+		// );
+		console.warn(
 			`[logSuspiciousWeight] Suspiciously high weight (${item.weight}kg) for item '${item.name}' (SKU: ${item.sku}) from ${source}.`,
 			item
-		);
+		); // Replaced logger with console.warn
 	}
 }
 
@@ -438,9 +501,12 @@ export async function getOrCreateShippingItemsFromInvoice(
 	itemsFromInvoice: ExtractedInvoiceItem[]
 ): Promise<ShippingItem[]> {
 	if (!itemsFromInvoice || itemsFromInvoice.length === 0) {
-		logger.info(
+		// logger.info(
+		// 	"getOrCreateShippingItemsFromInvoice: No items from invoice to process."
+		// );
+		console.info(
 			"getOrCreateShippingItemsFromInvoice: No items from invoice to process."
-		);
+		); // Replaced logger with console.info
 		return [];
 	}
 
@@ -449,10 +515,14 @@ export async function getOrCreateShippingItemsFromInvoice(
 	const aggregatedInvoiceItems = new Map<string, ExtractedInvoiceItem>();
 	for (const item of itemsFromInvoice) {
 		if (!item.sku || item.sku.trim() === "") {
-			logger.warn(
+			// logger.warn(
+			// 	`[getOrCreateShippingItemsFromInvoice] Invoice item "${item.name}" missing SKU or SKU is empty, cannot process.`,
+			// 	item
+			// );
+			console.warn(
 				`[getOrCreateShippingItemsFromInvoice] Invoice item "${item.name}" missing SKU or SKU is empty, cannot process.`,
 				item
-			);
+			); // Replaced logger with console.warn
 			continue;
 		}
 		const trimmedSku = item.sku.trim().toUpperCase();
@@ -469,10 +539,14 @@ export async function getOrCreateShippingItemsFromInvoice(
 			}); // Ensure weight is in kg
 		}
 	}
-	logger.info(
+	// logger.info(
+	// 	"[getOrCreateShippingItemsFromInvoice] Aggregated invoice items by SKU.",
+	// 	{ count: aggregatedInvoiceItems.size }
+	// );
+	console.info(
 		"[getOrCreateShippingItemsFromInvoice] Aggregated invoice items by SKU.",
 		{ count: aggregatedInvoiceItems.size }
-	);
+	); // Replaced logger with console.info
 
 	// 2. Fetch existing items from DB using DataService
 	// DataService.shippingItems.getAvailable() should ideally allow filtering by SKUs for efficiency.
@@ -487,16 +561,24 @@ export async function getOrCreateShippingItemsFromInvoice(
 		if (dbItem.sku) {
 			dbItemsBySku.set(dbItem.sku.trim().toUpperCase(), dbItem);
 		} else {
-			logger.warn(
+			// logger.warn(
+			// 	"[getOrCreateShippingItemsFromInvoice] DB item found with missing SKU.",
+			// 	{ id: dbItem._id }
+			// );
+			console.warn(
 				"[getOrCreateShippingItemsFromInvoice] DB item found with missing SKU.",
 				{ id: dbItem._id }
-			);
+			); // Replaced logger with console.warn
 		}
 	});
-	logger.info(
+	// logger.info(
+	// 	"[getOrCreateShippingItemsFromInvoice] Fetched and mapped DB items by SKU.",
+	// 	{ count: dbItemsBySku.size }
+	// );
+	console.info(
 		"[getOrCreateShippingItemsFromInvoice] Fetched and mapped DB items by SKU.",
 		{ count: dbItemsBySku.size }
-	);
+	); // Replaced logger with console.info
 
 	const finalShippingItems: ShippingItem[] = [];
 	const itemsToEstimate: ExtractedInvoiceItem[] = [];
@@ -507,18 +589,24 @@ export async function getOrCreateShippingItemsFromInvoice(
 		const dbItem = dbItemsBySku.get(normalizedSku);
 
 		if (dbItem) {
-			logger.info(
+			// logger.info(
+			// 	`[getOrCreateShippingItemsFromInvoice] Item found in DB: ${normalizedSku}. Using DB data.`
+			// );
+			console.info(
 				`[getOrCreateShippingItemsFromInvoice] Item found in DB: ${normalizedSku}. Using DB data.`
-			);
+			); // Replaced logger with console.info
 			logSuspiciousWeight(dbItem, "DB");
 			finalShippingItems.push({
 				...dbItem, // All properties from DB item (_id, name, sku, l,w,h, weight, timestamps)
 				quantity: invoiceItem.quantity, // Update quantity from current invoice
 			});
 		} else {
-			logger.info(
+			// logger.info(
+			// 	`[getOrCreateShippingItemsFromInvoice] Item not in DB: ${normalizedSku}. Will estimate dimensions.`
+			// );
+			console.info(
 				`[getOrCreateShippingItemsFromInvoice] Item not in DB: ${normalizedSku}. Will estimate dimensions.`
-			);
+			); // Replaced logger with console.info
 			// Ensure weight is in kg before sending to AI for dimension estimation
 			itemsToEstimate.push({ ...invoiceItem, weight: invoiceItem.weight });
 		}
@@ -526,9 +614,12 @@ export async function getOrCreateShippingItemsFromInvoice(
 
 	// 4. Estimate dimensions for items not found in DB
 	if (itemsToEstimate.length > 0) {
-		logger.info(
+		// logger.info(
+		// 	`[getOrCreateShippingItemsFromInvoice] Estimating dimensions for ${itemsToEstimate.length} new items.`
+		// );
+		console.info(
 			`[getOrCreateShippingItemsFromInvoice] Estimating dimensions for ${itemsToEstimate.length} new items.`
-		);
+		); // Replaced logger with console.info
 		const estimatedItemsDetails: EstimatedItemWithDimensions[] =
 			await estimateItemDimensionsAI(itemsToEstimate);
 
@@ -549,16 +640,22 @@ export async function getOrCreateShippingItemsFromInvoice(
 			};
 
 			try {
-				logger.info(
+				// logger.info(
+				// 	`[getOrCreateShippingItemsFromInvoice] Adding new item to DB: ${newItemDataForDb.sku}`
+				// );
+				console.info(
 					`[getOrCreateShippingItemsFromInvoice] Adding new item to DB: ${newItemDataForDb.sku}`
-				);
+				); // Replaced logger with console.info
 				const creationResponse = await DataService.shippingItems.add(
 					newItemDataForDb
 				);
 				if (creationResponse.success && creationResponse.data) {
-					logger.info(
+					// logger.info(
+					// 	`[getOrCreateShippingItemsFromInvoice] Successfully added item ${creationResponse.data.sku} with id ${creationResponse.data._id}`
+					// );
+					console.info(
 						`[getOrCreateShippingItemsFromInvoice] Successfully added item ${creationResponse.data.sku} with id ${creationResponse.data._id}`
-					);
+					); // Replaced logger with console.info
 					finalShippingItems.push({
 						...creationResponse.data,
 						quantity: itemsToEstimate.find(
@@ -566,10 +663,14 @@ export async function getOrCreateShippingItemsFromInvoice(
 						)!.quantity, // Add invoice quantity
 					});
 				} else {
-					logger.error(
+					// logger.error(
+					// 	"[getOrCreateShippingItemsFromInvoice] Failed to add new item to DB.",
+					// 	{ sku: newItemDataForDb.sku, error: creationResponse.message }
+					// );
+					console.error(
 						"[getOrCreateShippingItemsFromInvoice] Failed to add new item to DB.",
 						{ sku: newItemDataForDb.sku, error: creationResponse.message }
-					);
+					); // Replaced logger with console.error
 					// Fallback: use estimated data with a temporary ID if DB add fails, so frontend can still process
 					const tempId = `temp_${Date.now()}_${newItemDataForDb.sku}`;
 					finalShippingItems.push({
@@ -584,10 +685,14 @@ export async function getOrCreateShippingItemsFromInvoice(
 					});
 				}
 			} catch (error: any) {
-				logger.error(
+				// logger.error(
+				// 	"[getOrCreateShippingItemsFromInvoice] Exception while adding new item to DB.",
+				// 	{ sku: newItemDataForDb.sku, error: error.message }
+				// );
+				console.error(
 					"[getOrCreateShippingItemsFromInvoice] Exception while adding new item to DB.",
 					{ sku: newItemDataForDb.sku, error: error.message }
-				);
+				); // Replaced logger with console.error
 				const tempId = `temp_exc_${Date.now()}_${newItemDataForDb.sku}`;
 				finalShippingItems.push({
 					_id: tempId,
@@ -602,10 +707,14 @@ export async function getOrCreateShippingItemsFromInvoice(
 			}
 		}
 	}
-	logger.info(
+	// logger.info(
+	// 	"[getOrCreateShippingItemsFromInvoice] Finished processing all invoice items.",
+	// 	{ finalCount: finalShippingItems.length }
+	// );
+	console.info(
 		"[getOrCreateShippingItemsFromInvoice] Finished processing all invoice items.",
 		{ finalCount: finalShippingItems.length }
-	);
+	); // Replaced logger with console.info
 	return finalShippingItems;
 }
 
@@ -628,23 +737,34 @@ export async function processInvoiceFile(
 	fileType: string,
 	fileName: string
 ): Promise<ShippingItem[]> {
-	logger.info(
+	// logger.info(
+	// 	"processInvoiceFile: Starting full invoice processing workflow.",
+	// 	{ fileName, fileType }
+	// );
+	console.info(
 		"processInvoiceFile: Starting full invoice processing workflow.",
 		{ fileName, fileType }
-	);
+	); // Replaced logger with console.info
 
 	// Step 1: Extract text from file
 	let textContent: string;
 	try {
 		textContent = await extractTextFromFile(fileBuffer, fileType, fileName);
-		logger.info("processInvoiceFile: Text extraction successful.", {
+		// logger.info("processInvoiceFile: Text extraction successful.", {
+		// 	fileName,
+		// });
+		console.info("processInvoiceFile: Text extraction successful.", {
 			fileName,
-		});
+		}); // Replaced logger with console.info
 	} catch (error: any) {
-		logger.error("processInvoiceFile: Text extraction failed.", {
+		// logger.error("processInvoiceFile: Text extraction failed.", {
+		// 	fileName,
+		// 	error: error.message,
+		// });
+		console.error("processInvoiceFile: Text extraction failed.", {
 			fileName,
 			error: error.message,
-		});
+		}); // Replaced logger with console.error
 		throw new Error(`Failed to extract text from invoice: ${error.message}`);
 	}
 
@@ -653,23 +773,35 @@ export async function processInvoiceFile(
 	try {
 		extractedItems = await extractInvoiceItemsFromText(textContent);
 		if (!Array.isArray(extractedItems) || extractedItems.length === 0) {
-			logger.warn(
+			// logger.warn(
+			// 	"processInvoiceFile: No items found in invoice text or AI returned invalid format.",
+			// 	{ fileName }
+			// );
+			console.warn(
 				"processInvoiceFile: No items found in invoice text or AI returned invalid format.",
 				{ fileName }
-			);
+			); // Replaced logger with console.warn
 			throw new Error(
 				"No items found in invoice (AI returned no items or invalid format)."
 			);
 		}
-		logger.info(
+		// logger.info(
+		// 	`processInvoiceFile: AI extracted ${extractedItems.length} items initially.`,
+		// 	{ fileName }
+		// );
+		console.info(
 			`processInvoiceFile: AI extracted ${extractedItems.length} items initially.`,
 			{ fileName }
-		);
+		); // Replaced logger with console.info
 	} catch (error: any) {
-		logger.error("processInvoiceFile: AI item extraction failed.", {
+		// logger.error("processInvoiceFile: AI item extraction failed.", {
+		// 	fileName,
+		// 	error: error.message,
+		// });
+		console.error("processInvoiceFile: AI item extraction failed.", {
 			fileName,
 			error: error.message,
-		});
+		}); // Replaced logger with console.error
 		throw new Error(`Failed to extract items using AI: ${error.message}`);
 	}
 
@@ -679,15 +811,23 @@ export async function processInvoiceFile(
 		finalShippingItems = await getOrCreateShippingItemsFromInvoice(
 			extractedItems
 		);
-		logger.info(
+		// logger.info(
+		// 	`processInvoiceFile: Successfully processed and retrieved/created ${finalShippingItems.length} shipping items.`,
+		// 	{ fileName }
+		// );
+		console.info(
 			`processInvoiceFile: Successfully processed and retrieved/created ${finalShippingItems.length} shipping items.`,
 			{ fileName }
-		);
+		); // Replaced logger with console.info
 	} catch (error: any) {
-		logger.error(
+		// logger.error(
+		// 	"processInvoiceFile: Failed to get or create shipping items.",
+		// 	{ fileName, error: error.message }
+		// );
+		console.error(
 			"processInvoiceFile: Failed to get or create shipping items.",
 			{ fileName, error: error.message }
-		);
+		); // Replaced logger with console.error
 		throw new Error(`Failed to get or create shipping items: ${error.message}`);
 	}
 

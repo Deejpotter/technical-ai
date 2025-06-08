@@ -4,6 +4,9 @@
  * Author: Deej Potter
  * Description: This file initializes and configures the Express application, including middleware and route setup.
  */
+import dotenv from "dotenv";
+dotenv.config(); // Load environment variables from .env file
+
 import express from "express";
 import cors from "cors";
 import aiRoutes from "./routes/ai";

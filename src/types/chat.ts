@@ -12,6 +12,7 @@ import { MongoDocument } from "./mongodb";
  */
 export interface ChatResponse {
 	bot_response: string;
+	error?: string; // Added optional error field
 }
 
 /**

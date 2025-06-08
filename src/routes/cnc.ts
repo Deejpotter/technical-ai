@@ -19,7 +19,6 @@ import {
 	calculateDoorMaterials,
 	Dimensions as TableEnclosureDimensions,
 } from "@/services/table-enclosure-calc";
-import { logger } from "@/utils/logger";
 
 const router = Router();
 
@@ -133,22 +132,18 @@ const calculateTableMaterialsHandler: RequestHandler = (req, res, next) => {
 			typeof fullDimensions.isOutsideDimension !== "boolean" ||
 			typeof isOutsideDimension !== "boolean"
 		) {
-			res
-				.status(400)
-				.json({
-					error:
-						"Invalid input: full dimensions object (length, width, height, isOutsideDimension) and a separate isOutsideDimension boolean are required.",
-				});
+			res.status(400).json({
+				error:
+					"Invalid input: full dimensions object (length, width, height, isOutsideDimension) and a separate isOutsideDimension boolean are required.",
+			});
 			return;
 		}
 		// It's good practice to ensure the separate isOutsideDimension matches the one in the dimensions object if both are provided for this endpoint structure.
 		if (fullDimensions.isOutsideDimension !== isOutsideDimension) {
-			res
-				.status(400)
-				.json({
-					error:
-						"Mismatch between isOutsideDimension in dimensions object and the separate isOutsideDimension parameter.",
-				});
+			res.status(400).json({
+				error:
+					"Mismatch between isOutsideDimension in dimensions object and the separate isOutsideDimension parameter.",
+			});
 			return;
 		}
 
@@ -159,7 +154,6 @@ const calculateTableMaterialsHandler: RequestHandler = (req, res, next) => {
 		);
 		res.json(materials);
 	} catch (error) {
-		logger.error("Error in /calculate-table-materials:", error);
 		next(error);
 	}
 };
@@ -177,21 +171,17 @@ const calculateEnclosureMaterialsHandler: RequestHandler = (req, res, next) => {
 			typeof fullDimensions.isOutsideDimension !== "boolean" ||
 			typeof isOutsideDimension !== "boolean"
 		) {
-			res
-				.status(400)
-				.json({
-					error:
-						"Invalid input: full dimensions object (length, width, height, isOutsideDimension) and a separate isOutsideDimension boolean are required.",
-				});
+			res.status(400).json({
+				error:
+					"Invalid input: full dimensions object (length, width, height, isOutsideDimension) and a separate isOutsideDimension boolean are required.",
+			});
 			return;
 		}
 		if (fullDimensions.isOutsideDimension !== isOutsideDimension) {
-			res
-				.status(400)
-				.json({
-					error:
-						"Mismatch between isOutsideDimension in dimensions object and the separate isOutsideDimension parameter.",
-				});
+			res.status(400).json({
+				error:
+					"Mismatch between isOutsideDimension in dimensions object and the separate isOutsideDimension parameter.",
+			});
 			return;
 		}
 		const { length, width, height } = fullDimensions;
@@ -201,7 +191,6 @@ const calculateEnclosureMaterialsHandler: RequestHandler = (req, res, next) => {
 		);
 		res.json(materials);
 	} catch (error) {
-		logger.error("Error in /calculate-enclosure-materials:", error);
 		next(error);
 	}
 };
@@ -211,7 +200,6 @@ const calculateMountingMaterialsHandler: RequestHandler = (req, res, next) => {
 		const materials = calculateMountingMaterials();
 		res.json(materials);
 	} catch (error) {
-		logger.error("Error in /calculate-mounting-materials:", error);
 		next(error);
 	}
 };
@@ -238,21 +226,17 @@ const calculateDoorMaterialsHandler: RequestHandler = (req, res, next) => {
 			!doorConfig ||
 			typeof doorConfig.doorType !== "string"
 		) {
-			res
-				.status(400)
-				.json({
-					error:
-						"Invalid input: full dimensions object, isOutsideDimension boolean, and doorConfig (with doorType) are required.",
-				});
+			res.status(400).json({
+				error:
+					"Invalid input: full dimensions object, isOutsideDimension boolean, and doorConfig (with doorType) are required.",
+			});
 			return;
 		}
 		if (fullDimensions.isOutsideDimension !== isOutsideDimension) {
-			res
-				.status(400)
-				.json({
-					error:
-						"Mismatch between isOutsideDimension in dimensions object and the separate isOutsideDimension parameter.",
-				});
+			res.status(400).json({
+				error:
+					"Mismatch between isOutsideDimension in dimensions object and the separate isOutsideDimension parameter.",
+			});
 			return;
 		}
 
@@ -264,7 +248,6 @@ const calculateDoorMaterialsHandler: RequestHandler = (req, res, next) => {
 		);
 		res.json(materials);
 	} catch (error) {
-		logger.error("Error in /calculate-door-materials:", error);
 		next(error);
 	}
 };
