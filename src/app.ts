@@ -5,7 +5,7 @@
  * Description: This file initializes and configures the Express application, including middleware and route setup.
  */
 import dotenv from "dotenv";
-dotenv.config(); // Load environment variables from .env file
+dotenv.config();
 
 import express from "express";
 import cors from "cors";
@@ -21,7 +21,5 @@ app.use(express.json());
 app.use("/api/ai", aiRoutes);
 app.use("/api/cnc", cncRoutes);
 app.use("/api/shipping", shippingRoutes);
-
-// ...existing code for error handling, etc...
 
 export default app;
