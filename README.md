@@ -42,3 +42,10 @@ See `codingconventions.md` for detailed coding standards.
 ## Change Log
 
 See `codeupdates.md` for a history of codebase changes.
+
+## Deployment and Port Binding
+
+- The Express app must listen on the port provided by the environment variable `PORT` (e.g., `process.env.PORT`).
+- This is required for deployment platforms like Render, Heroku, etc.
+- For local development, the app defaults to port 5000 if `PORT` is not set.
+- See `src/app.ts` for the implementation and comments.

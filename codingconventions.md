@@ -19,3 +19,9 @@
 
 - Update `README.md` and `codeupdates.md` with every significant change.
 - Document all API endpoints and business logic changes.
+
+## Port Binding for Deployment
+
+- Always use `process.env.PORT` for the server port in Express apps.
+- Provide a fallback (e.g., 5000) for local development.
+- Never hardcode the port for deployment; deployment platforms require dynamic port assignment.
