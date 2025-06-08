@@ -1,57 +1,44 @@
-# CNC Technical AI
+# Technical AI Backend
 
-A chatbot that provides detailed technical information about CNC machines and related products. It is built using Python, Flask, and OpenAI's GPT-3, and is deployed on Heroku.
+## Overview
 
-## Note
+This project is a centralized Express.js backend API for technical AI and business logic, designed to serve multiple frontend applications. It uses TypeScript, OpenAI/Anthropic APIs, and Netlify Identity for authentication.
 
-This is a work in progress and is for testing purposes only. The chatbot may not provide accurate information. Always double-check with a qualified professional.
+## Architecture & Implementation Plan
 
-## Prerequisites
+### Backend Structure
 
-Before you begin, ensure you have met the following requirements:
+- Centralized Express API
+- JWT authentication via Netlify Identity
+- RESTful endpoints: `/api/ai/chat`, `/api/cnc/estimate`, etc.
+- Organized by feature: `routes/`, `services/`, `middleware/`, `data/`, `types/`
 
-- **Python 3.x**: The project is built on Python. You can download it from [here](https://www.python.org/downloads/).
-- **pip**: This is Python's package installer. It generally comes installed with Python.
-- **OpenAI API Key**: You'll need an API key from OpenAI to access their GPT-3 model. You can get one from [OpenAI's website](https://beta.openai.com/signup/).
+### Authentication Flow
 
+- Netlify Identity JWT verification middleware
+- No user data storage required
 
-## Getting Started
+### AI Integration
 
-1. **Clone the Repository**:
-    ```bash
-    git clone https://github.com/Deejpotter/CNC-Technical-AI.git
-    ```
+- OpenAI and Anthropic APIs for chat, Q&A, and reasoning
+- Future: LangChain.js agents for advanced workflows
 
-2. **Navigate to the project directory**:
-    ```bash
-    cd CNC-Technical-AI
-    ```
+### Implementation Steps
 
-3. **Install Dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
+1. Set up Express backend with auth middleware
+2. Migrate backend logic from `sample code` to Express
+3. Remove frontend/interface files from backend folders
+4. Update and maintain documentation (`README.md`, `codingconventions.md`, `codeupdates.md`)
 
-4. **Set Environment Variables**:
-    - Create a `.env` file in the root directory.
-    - Add your OpenAI API key like so:
-        ```env
-        OPENAI_API_KEY=your-api-key-here
-        ```
-    - Also add your ALLOWED_ORIGINS separated by commas:
-        ```env
-        ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5000
-        ```
+## Testing
 
-5. **Run the Application**:
-    ```bash
-    flask run
-    ```
+- Use `yarn test` to run Jest tests and verify backend functionality
+- Use `yarn build` to compile TypeScript and check for build errors
 
-## Contributing
+## Conventions
 
-If you'd like to contribute, please fork the repository and use a feature branch. Pull requests are warmly welcome.
+See `codingconventions.md` for detailed coding standards.
 
-## License
+## Change Log
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+See `codeupdates.md` for a history of codebase changes.
