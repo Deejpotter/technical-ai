@@ -44,6 +44,15 @@ app.get("/api/health", (req, res) => {
 	res.status(200).json({ status: "ok", message: "API is healthy" });
 });
 
+// WhoAmI endpoint: returns the authenticated user's ID (and optionally more info)
+app.get("/api/whoami", requireAuth, (req, res) => {
+	// req.userId is set by Clerk middleware
+	res.json({
+		userId: (req as any).userId,
+		// Optionally add more user info here if needed
+	});
+});
+
 // 404 handler for unknown API routes
 // This should be placed after all other route handlers
 app.use((req, res, next) => {
