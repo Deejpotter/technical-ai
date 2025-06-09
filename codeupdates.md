@@ -75,3 +75,44 @@
 - Updated `README.md` and `codingconventions.md` with port binding info.
 - Ran `yarn build` and `yarn test` successfully after the change.
 - This resolves the Render deployment issue: the app will now keep a port open as required.
+
+## [2025-06-09] Backend Basics: Error Handling, 404s, and Health Check (in progress)
+
+- Added centralized error handling middleware to `src/app.ts` with detailed comments.
+- Added 404 handler for unknown API routes in `src/app.ts`.
+- Implemented `/api/health` endpoint for deployment and monitoring.
+- Updated `README.md` with documentation for health check and error handling.
+- Updated `codingconventions.md` to include error handling, 404, and health check conventions.
+- These changes improve reliability, maintainability, and deployment readiness.
+
+## [2025-06-09] Project Overview & Documentation Update (in progress)
+
+- Expanded README.md with a detailed overview, design philosophy, features, usage, and contributing sections.
+- Clarified the backend's purpose as a universal, abstract API for all current and future web apps.
+- Added extensibility and abstraction guidelines to codingconventions.md.
+- All changes are in progress and will be marked as completed after review and testing.
+
+## [2025-06-09] Frontend Integration Guide (in progress)
+
+- Added a Frontend Integration Guide to README.md, covering:
+  - API base URL and environment variable setup
+  - Authentication flow with Netlify Identity
+  - Example API requests from the frontend
+  - Health check and error handling patterns
+- This helps frontend developers migrate from server actions to using the backend API directly.
+
+## [2025-06-09] Auth0 Migration Steps (in progress)
+
+- Updated .env to add AUTH0_DOMAIN, AUTH0_AUDIENCE, and AUTH0_ISSUER for Auth0 JWT verification (in progress)
+- Installed jose for JWT verification (in progress)
+- Replaced Netlify Identity JWT middleware with Auth0-compatible middleware in requireAuth.ts (in progress)
+- User must fill in Auth0 values from Netlify UI/Auth0 dashboard
+
+## [2025-06-09] Clerk Migration Steps (in progress)
+
+- Migrating backend authentication to Clerk (in progress)
+- Added middleware/clerkAuth.ts for Clerk JWT verification (in progress)
+- Updated app.ts to use Clerk middleware and parse ALLOWED_ORIGINS for CORS (in progress)
+- Updated .env to document Clerk keys and mark old auth variables for removal (in progress)
+- Migrated authentication to Clerk: added Clerk keys to .env, implemented middleware/clerkAuth.ts, and updated app.ts to use requireAuth for protected routes (in progress)
+- Updated .env comments to clarify Clerk usage and note removal of old keys (in progress)
