@@ -332,8 +332,8 @@ async function getItemDimensions(
 			// If the item already exists in the DB, always use the DB record and never add a duplicate.
 			finalShippingItems.push({
 				...dbItem, // Includes _id, name, length, width, height, sku, createdAt, updatedAt, deletedAt from DB
-				quantity: invoiceItem.quantity, // Aggregated quantity from the current invoice
 				weight: dbItem.weight, // Always trust DB weight
+				// NOTE: Do not add quantity here; quantity is UI-only per coding conventions
 			});
 			continue; // Skip adding a new item to the DB
 		}
@@ -363,7 +363,7 @@ async function getItemDimensions(
 			width: estimatedItemDetails.width,
 			height: estimatedItemDetails.height,
 			weight: safeWeight,
-			quantity: 1, // Individual items, quantity will be set from invoice data
+			// quantity: 1, // REMOVED: quantity is UI-only, not part of backend model
 		};
 		try {
 			const creationResponse = await DataService.shippingItems.add(
@@ -376,7 +376,7 @@ async function getItemDimensions(
 			if (creationResponse.success && creationResponse.data) {
 				finalShippingItems.push({
 					...creationResponse.data,
-					quantity: invoiceItem.quantity,
+					// quantity: invoiceItem.quantity, // REMOVED: quantity is UI-only, not part of backend model
 				});
 			} else {
 				const tempId = `temp_${Date.now()}_${invoiceItem.sku}`;
@@ -388,10 +388,10 @@ async function getItemDimensions(
 					width: newItemDataForDb.width,
 					height: newItemDataForDb.height,
 					weight: newItemDataForDb.weight,
-					quantity: invoiceItem.quantity,
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					deletedAt: null,
+					// quantity: invoiceItem.quantity, // REMOVED: quantity is UI-only, not part of backend model
 				});
 			}
 		} catch (error) {
@@ -404,10 +404,10 @@ async function getItemDimensions(
 				width: newItemDataForDb.width,
 				height: newItemDataForDb.height,
 				weight: newItemDataForDb.weight,
-				quantity: invoiceItem.quantity,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
+				// quantity: invoiceItem.quantity, // REMOVED: quantity is UI-only, not part of backend model
 			});
 		}
 	}

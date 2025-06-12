@@ -41,6 +41,17 @@
 - `.env` must include `MASTER_ADMIN_USER_ID` and `CLERK_SECRET_KEY`.
 - Clerk metadata (`isAdmin`, `isMaster`) must be set in the Clerk dashboard for correct access control.
 
+## (completed) - June 12, 2025 (Clerk Backend Migration)
+
+- Migrated all backend authentication from deprecated @clerk/clerk-sdk-node and @clerk/backend to @clerk/express.
+- Updated all imports and middleware to use requireAuth(), getAuth, and clerkClient from @clerk/express.
+- Fixed all Express handler typing issues and ensured robust async error handling with wrapAsync.
+- Updated requireAuth usage to requireAuth() (middleware factory) in app.ts and all routes.
+- Updated src/types/express.d.ts to use AuthObject from @clerk/express.
+- All build and type checks pass. All authentication and user management endpoints work as expected.
+- Some BoxCalculations.test.ts tests still fail (business logic, not related to Clerk migration).
+- Updated README.md and codingconventions.md to document Clerk backend usage and conventions.
+
 ---
 
 ## (completed) - June 9, 2025 (Component Library Deletion)

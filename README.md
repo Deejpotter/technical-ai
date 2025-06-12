@@ -71,7 +71,8 @@ The following endpoints are used for managing user roles and require Master Admi
 
 ## Clerk Authentication & Admin Roles
 
-* All authentication is handled by Clerk. Endpoints requiring authentication use the `requireAuth` middleware.
+* All authentication is handled by Clerk using @clerk/express. Endpoints requiring authentication use the requireAuth() middleware from src/middleware/clerkAuth.ts.
+* requireAuth() must be called as a function when used as Express middleware.
 * Admin and Master Admin roles are determined by Clerk `publicMetadata`:
   * `isAdmin: true` for admin access.
   * `isMaster: true` (and userId matches `MASTER_ADMIN_USER_ID` in `.env`) for master admin access.

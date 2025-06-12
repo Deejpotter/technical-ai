@@ -17,8 +17,7 @@
   "license": "ISC",
   "repository": "git@github.com:Deejpotter/technical-ai.git",
   "dependencies": {
-    "@clerk/backend": "^2.0.0",
-    "@clerk/clerk-sdk-node": "^5.1.6",
+    "@clerk/express": "^1.6.0",
     "@types/multer": "^1.4.13",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",

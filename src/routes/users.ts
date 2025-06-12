@@ -1,98 +1,150 @@
-import express from 'express';
-import { clerkClient, RequireAuthProp } from '@clerk/clerk-sdk-node';
-import { requireMasterAdmin } from '../middleware/requireMasterAdmin';
-import { AuthenticatedRequest } from '../types/express'; // Ensure this path is correct
+import express from "express";
+import { requireAuth, getAuth, clerkClient } from "@clerk/express";
+import { requireMasterAdmin } from "../middleware/requireMasterAdmin";
+import { AuthenticatedRequest } from "../types/express"; // Ensure this path is correct
+import { wrapAsync } from "../utils/wrapAsync";
 
 const router = express.Router();
 
 if (!process.env.CLERK_SECRET_KEY) {
-  console.error("CLERK_SECRET_KEY is not defined in .env. User operations will fail.");
-  // Optionally, you could throw an error here to prevent the app from starting
-  // throw new Error("CLERK_SECRET_KEY is not defined. Please set it in your .env file.");
+	console.error(
+		"CLERK_SECRET_KEY is not defined in .env. User operations will fail."
+	);
+	// Optionally, you could throw an error here to prevent the app from starting
+	// throw new Error("CLERK_SECRET_KEY is not defined. Please set it in your .env file.");
 }
 
-// Route to update a user's admin status
-router.post('/update-user-role', requireMasterAdmin, async (req: AuthenticatedRequest, res) => {
-    const { userIdToUpdate, isAdmin } = req.body;
+// Handlers remain as async functions returning Promise<void>
+const updateUserRoleHandler = async (
+	req: express.Request,
+	res: express.Response,
+	next: express.NextFunction
+): Promise<void> => {
+	/**
+	 * Handler uses Express.Request for compatibility, but we cast to AuthenticatedRequest for Clerk fields.
+	 */
+	const authReq = req as AuthenticatedRequest;
+	const { userIdToUpdate, isAdmin } = req.body;
 
-    if (!userIdToUpdate || typeof isAdmin !== 'boolean') {
-        return res.status(400).json({ error: 'Missing userIdToUpdate or isAdmin in request body, or isAdmin is not a boolean.' });
-    }
+	if (!userIdToUpdate || typeof isAdmin !== "boolean") {
+		res.status(400).json({
+			error:
+				"Missing userIdToUpdate or isAdmin in request body, or isAdmin is not a boolean.",
+		});
+		return;
+	}
 
-    if (!process.env.CLERK_SECRET_KEY) {
-        console.error("CLERK_SECRET_KEY is not set. Cannot update user metadata.");
-        return res.status(500).json({ error: 'Server configuration error: Clerk Secret Key not set.' });
-    }
+	if (!process.env.CLERK_SECRET_KEY) {
+		console.error("CLERK_SECRET_KEY is not set. Cannot update user metadata.");
+		res.status(500).json({
+			error: "Server configuration error: Clerk Secret Key not set.",
+		});
+		return;
+	}
 
-    try {
-        // The user making the request is authenticated as Master Admin by the middleware
-        // Now, update the target user's metadata
-        const updatedUser = await clerkClient.users.updateUserMetadata(userIdToUpdate, {
-            publicMetadata: {
-                isAdmin: isAdmin
-            }
-        });
+	try {
+		// The user making the request is authenticated as Master Admin by the middleware
+		// Now, update the target user's metadata
+		const updatedUser = await clerkClient.users.updateUserMetadata(
+			userIdToUpdate,
+			{
+				publicMetadata: {
+					isAdmin: isAdmin,
+				},
+			}
+		);
 
-        res.status(200).json({ message: 'User role updated successfully.', user: updatedUser });
-    } catch (error: any) {
-        console.error('Error updating user metadata:', error);
-        // Check for specific Clerk error types if needed, or provide a generic message
-        let errorMessage = 'Failed to update user role.';
-        let statusCode = 500;
+		res.status(200).json({
+			message: "User role updated successfully.",
+			user: updatedUser,
+		});
+		return;
+	} catch (error: any) {
+		console.error("Error updating user metadata:", error);
+		let errorMessage = "Failed to update user role.";
+		let statusCode = 500;
 
-        if (error.status && error.errors && error.errors.length > 0) {
-            statusCode = error.status;
-            errorMessage = error.errors.map((e: any) => e.message).join(', ');
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
+		if (error.status && error.errors && error.errors.length > 0) {
+			statusCode = error.status;
+			errorMessage = error.errors.map((e: any) => e.message).join(", ");
+		} else if (error.message) {
+			errorMessage = error.message;
+		}
 
-        res.status(statusCode).json({ error: errorMessage });
-    }
-});
+		res.status(statusCode).json({ error: errorMessage });
+		return;
+	}
+};
 
-// Route to get all users (for Master Admin to manage them)
-router.get('/list-users', requireMasterAdmin, async (req: AuthenticatedRequest, res) => {
-    if (!process.env.CLERK_SECRET_KEY) {
-        console.error("CLERK_SECRET_KEY is not set. Cannot list users.");
-        return res.status(500).json({ error: 'Server configuration error: Clerk Secret Key not set.' });
-    }
-    try {
-        // Parameters for pagination, can be adjusted or made configurable via query params
-        const limit = 50; // Clerk API default is 10, max is 500
-        let offset = 0;
-        if (req.query.offset && !isNaN(Number(req.query.offset))) {
-            offset = Number(req.query.offset);
-        }
+const listUsersHandler = async (
+	req: express.Request,
+	res: express.Response,
+	next: express.NextFunction
+): Promise<void> => {
+	/**
+	 * Handler uses Express.Request for compatibility, but we cast to AuthenticatedRequest for Clerk fields.
+	 */
+	const authReq = req as AuthenticatedRequest;
+	if (!process.env.CLERK_SECRET_KEY) {
+		console.error("CLERK_SECRET_KEY is not set. Cannot list users.");
+		res.status(500).json({
+			error: "Server configuration error: Clerk Secret Key not set.",
+		});
+		return;
+	}
+	try {
+		// Parameters for pagination, can be adjusted or made configurable via query params
+		const limit = 50; // Clerk API default is 10, max is 500
+		let offset = 0;
+		if (req.query.offset && !isNaN(Number(req.query.offset))) {
+			offset = Number(req.query.offset);
+		}
 
-        const users = await clerkClient.users.getUserList({ limit, offset, orderBy: '+created_at' });
-        const totalCount = await clerkClient.users.getCount();
+		const userListResponse = await clerkClient.users.getUserList({
+			limit,
+			offset,
+			orderBy: "+created_at",
+		});
+		const users = userListResponse.data || userListResponse;
+		const totalCount = await clerkClient.users.getCount();
 
-        // We might want to simplify the user object returned to the frontend
-        const simplifiedUsers = users.map(user => ({
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            emailAddress: user.emailAddresses.find(email => email.id === user.primaryEmailAddressId)?.emailAddress,
-            publicMetadata: user.publicMetadata,
-            lastSignInAt: user.lastSignInAt,
-            createdAt: user.createdAt,
-        }));
+		// We might want to simplify the user object returned to the frontend
+		const simplifiedUsers = users.map((user: any) => ({
+			id: user.id,
+			firstName: user.firstName,
+			lastName: user.lastName,
+			emailAddress: user.emailAddresses.find(
+				(email: any) => email.id === user.primaryEmailAddressId
+			)?.emailAddress,
+			publicMetadata: user.publicMetadata,
+			lastSignInAt: user.lastSignInAt,
+			createdAt: user.createdAt,
+		}));
 
-        res.status(200).json({ users: simplifiedUsers, totalCount, limit, offset });
-    } catch (error: any) {
-        console.error('Error fetching user list:', error);
-        let errorMessage = 'Failed to fetch user list.';
-        let statusCode = 500;
+		res.status(200).json({ users: simplifiedUsers, totalCount, limit, offset });
+		return;
+	} catch (error: any) {
+		console.error("Error fetching user list:", error);
+		let errorMessage = "Failed to fetch user list.";
+		let statusCode = 500;
 
-        if (error.status && error.errors && error.errors.length > 0) {
-            statusCode = error.status;
-            errorMessage = error.errors.map((e: any) => e.message).join(', ');
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
-        res.status(statusCode).json({ error: errorMessage });
-    }
-});
+		if (error.status && error.errors && error.errors.length > 0) {
+			statusCode = error.status;
+			errorMessage = error.errors.map((e: any) => e.message).join(", ");
+		} else if (error.message) {
+			errorMessage = error.message;
+		}
+		res.status(statusCode).json({ error: errorMessage });
+		return;
+	}
+};
+
+// Use wrapAsync to ensure correct typing and error propagation
+router.post(
+	"/update-user-role",
+	requireMasterAdmin,
+	wrapAsync(updateUserRoleHandler)
+);
+router.get("/list-users", requireMasterAdmin, wrapAsync(listUsersHandler));
 
 export default router;

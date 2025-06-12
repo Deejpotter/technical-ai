@@ -47,7 +47,7 @@
 
 ## Authentication & CORS
 
-- Use Clerk for authentication. All protected endpoints must use the requireAuth middleware from src/middleware/clerkAuth.ts.
+- Use Clerk for authentication. All protected endpoints must use the requireAuth() middleware from src/middleware/clerkAuth.ts (note: requireAuth must be called as a function).
 - Document all changes to authentication logic and environment variables in codeupdates.md.
 - Always keep ALLOWED_ORIGINS up to date with all frontend URLs.
 

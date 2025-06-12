@@ -28,12 +28,12 @@ app.use(
 app.use(express.json());
 
 // Example: Protect all /api/ai routes (customize as needed)
-app.use("/api/ai", requireAuth, aiRoutes);
+app.use("/api/ai", requireAuth(), aiRoutes);
 
 // Mount API routes
 app.use("/api/cnc", cncRoutes);
 app.use("/api/shipping", shippingRoutes);
-app.use("/api/users", requireAuth, userRoutes); // Add user routes, protected by requireAuth
+app.use("/api/users", requireAuth(), userRoutes); // Add user routes, protected by requireAuth
 
 // Health check endpoint for deployment and monitoring
 // Returns 200 OK if the server is running
@@ -47,7 +47,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // WhoAmI endpoint: returns the authenticated user's ID (and optionally more info)
-app.get("/api/whoami", requireAuth, (req, res) => {
+app.get("/api/whoami", requireAuth(), (req, res) => {
 	// req.userId is set by Clerk middleware
 	res.json({
 		userId: (req as any).userId,

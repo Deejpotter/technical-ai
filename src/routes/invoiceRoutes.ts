@@ -20,59 +20,75 @@ const upload = multer({
 	},
 });
 
+// Best practice: All async route handlers are typed as Promise<void> and never return a value.
+// Always end each response with 'return;' to avoid TypeScript/Express type errors.
 router.post(
 	"/process-pdf",
-	requireAuth,
-	upload.single("invoiceFile"), // 'invoiceFile' is the name of the field in the form-data
-	async (req: AuthenticatedRequest, res) => {
-		if (!req.file) {
-			return res.status(400).json({ error: "No file uploaded." });
+	requireAuth(),
+	upload.single("invoiceFile"),
+	async (req, res, next): Promise<void> => {
+		/**
+		 * TypeScript/Express type compatibility:
+		 * Express expects handlers to use the base Request type, but the requireAuth middleware attaches Clerk auth info.
+		 * I cast req to AuthenticatedRequest to access Clerk fields, and check for presence at runtime.
+		 *
+		 * Best practice: Never return a value from this handler. Always end with 'return;' after sending a response.
+		 */
+		const authReq = req as AuthenticatedRequest;
+		if (!authReq.file) {
+			res.status(400).json({ error: "No file uploaded." });
+			return;
 		}
 
-		if (!req.auth || !req.auth.userId) {
-			return res.status(401).json({ error: "User not authenticated." });
+		if (!authReq.auth || !authReq.auth.userId) {
+			res.status(401).json({ error: "User not authenticated." });
+			return;
 		}
 
-		const userId = req.auth.userId;
-		const fileBuffer = req.file.buffer;
-		const fileType = req.file.mimetype;
-		const fileName = req.file.originalname;
+		const fileBuffer = authReq.file.buffer;
+		const fileType = authReq.file.mimetype;
+		const fileName = authReq.file.originalname;
 
 		try {
-			console.log(`Processing PDF for user: ${userId}, filename: ${fileName}`);
+			console.log(
+				`Processing PDF for user: ${authReq.auth.userId}, filename: ${fileName}`
+			);
 			const extractedItems = await processInvoiceFileAndExtractItems(
 				fileBuffer,
 				fileType,
-				fileName,
-				userId
+				fileName
 			);
 			res.status(200).json(extractedItems);
+			return;
 		} catch (error: any) {
 			console.error("Error processing invoice PDF:", error);
 			if (error.message.includes("Unsupported file type")) {
-				return res.status(400).json({ error: error.message });
+				res.status(400).json({ error: error.message });
+				return;
 			}
 			if (error.message.includes("Failed to extract text")) {
-				return res
-					.status(500)
-					.json({
-						error: "Failed to extract text from file.",
-						details: error.message,
-					});
+				res.status(500).json({
+					error: "Failed to extract text from file.",
+					details: error.message,
+				});
+				return;
 			}
 			if (error.message.includes("Failed to process text with AI")) {
-				return res
+				res
 					.status(500)
 					.json({ error: "AI processing failed.", details: error.message });
+				return;
 			}
 			if (error.message.includes("OpenAI response format is invalid")) {
-				return res
+				res
 					.status(500)
 					.json({ error: "AI response format error.", details: error.message });
+				return;
 			}
 			res
 				.status(500)
 				.json({ error: "Failed to process invoice.", details: error.message });
+			return;
 		}
 	}
 );
