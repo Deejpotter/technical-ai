@@ -18,6 +18,7 @@ import {
 	NextFunction,
 	RequestHandler,
 } from "express"; // Added RequestHandler
+import multer from "multer";
 import { DataService } from "../data/DataService";
 import ShippingItem from "../types/ShippingItem";
 import { DatabaseResponse } from "../types/mongodb";
@@ -30,6 +31,30 @@ import { MultiBoxPackingResult } from "../types/box-shipping-types";
 import ShippingBox from "../types/ShippingBox";
 
 const router = Router();
+
+// Configure multer for file uploads (memory storage for processing)
+const upload = multer({
+	storage: multer.memoryStorage(),
+	limits: {
+		fileSize: 50 * 1024 * 1024, // 50MB limit
+	},
+	fileFilter: (req, file, cb) => {
+		// Accept PDF and text files
+		const allowedTypes = ["application/pdf", "text/plain"];
+		const allowedExtensions = [".pdf", ".txt", ".text"];
+
+		const isValidMimeType = allowedTypes.includes(file.mimetype);
+		const isValidExtension = allowedExtensions.some((ext) =>
+			file.originalname.toLowerCase().endsWith(ext)
+		);
+
+		if (isValidMimeType || isValidExtension) {
+			cb(null, true);
+		} else {
+			cb(new Error("Only PDF and text files are allowed"));
+		}
+	},
+});
 
 /**
  * @swagger
@@ -198,6 +223,86 @@ const packMultipleBoxesHandler: RequestHandler = (req, res, next) => {
 };
 
 /**
+ * Handler for extracting invoice items using AI from text content
+ */
+const extractInvoiceItems: RequestHandler = async (req, res, next) => {
+	try {
+		const { text } = req.body;
+
+		if (!text || typeof text !== "string") {
+			res.status(400).json({
+				success: false,
+				message: "Text content is required for invoice extraction",
+			});
+			return;
+		}
+
+		// Use the existing invoice processing service to extract items from text
+		const { extractInvoiceItemsFromText } = await import(
+			"../services/invoiceService"
+		);
+		const extractedItems = await extractInvoiceItemsFromText(text);
+
+		res.status(200).json({
+			success: true,
+			data: extractedItems,
+			message: `Successfully extracted ${extractedItems.length} items from invoice text`,
+		});
+	} catch (error) {
+		console.error("Error extracting invoice items:", error);
+		res.status(500).json({
+			success: false,
+			data: [],
+			message:
+				error instanceof Error
+					? error.message
+					: "Failed to extract invoice items",
+		});
+	}
+};
+
+/**
+ * Handler for getting item dimensions based on SKUs
+ */
+const getItemDimensions: RequestHandler = async (req, res, next) => {
+	try {
+		const { extractedItems } = req.body;
+
+		if (!Array.isArray(extractedItems)) {
+			res.status(400).json({
+				success: false,
+				message: "extractedItems must be an array",
+			});
+			return;
+		}
+
+		// Use the existing invoice processing service to get dimensions
+		const { getOrCreateShippingItemsFromInvoice } = await import(
+			"../services/invoiceService"
+		);
+		const shippingItems = await getOrCreateShippingItemsFromInvoice(
+			extractedItems
+		);
+
+		res.status(200).json({
+			success: true,
+			data: shippingItems,
+			message: `Successfully processed ${shippingItems.length} shipping items`,
+		});
+	} catch (error) {
+		console.error("Error getting item dimensions:", error);
+		res.status(500).json({
+			success: false,
+			data: [],
+			message:
+				error instanceof Error
+					? error.message
+					: "Failed to get item dimensions",
+		});
+	}
+};
+
+/**
  * @route GET /api/shipping/items
  * @description Get all available (non-deleted) shipping items.
  * @access Public
@@ -303,8 +408,484 @@ router.post("/calculate-best-box", calculateBestBoxHandler);
  */
 router.post("/pack-multiple-boxes", packMultipleBoxesHandler);
 
-// TODO: Implement POST /api/shipping/items to add a new item
-// TODO: Implement PUT /api/shipping/items/:id to update an item
-// TODO: Implement DELETE /api/shipping/items/:id to delete an item
+/**
+ * @swagger
+ * /api/shipping/extract-invoice-items:
+ *   post:
+ *     summary: Extract items from invoice text using AI
+ *     tags: [Shipping]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: The text content extracted from the invoice
+ *             required:
+ *               - text
+ *     responses:
+ *       200:
+ *         description: Invoice items extraction result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/extract-invoice-items", extractInvoiceItems);
+
+/**
+ * @swagger
+ * /api/shipping/get-item-dimensions:
+ *   post:
+ *     summary: Get item dimensions based on SKUs
+ *     tags: [Shipping]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               extractedItems:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     sku:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *             required:
+ *               - extractedItems
+ *     responses:
+ *       200:
+ *         description: Item dimensions lookup result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ShippingItem'
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/get-item-dimensions", getItemDimensions);
+
+/**
+ * Handler for creating a new shipping item
+ */
+const createShippingItem: RequestHandler = async (req, res, next) => {
+	try {
+		const itemData: Omit<
+			ShippingItem,
+			"_id" | "createdAt" | "updatedAt" | "deletedAt"
+		> = req.body;
+
+		// Validate required fields
+		if (
+			!itemData.name ||
+			!itemData.length ||
+			!itemData.width ||
+			!itemData.height ||
+			!itemData.weight
+		) {
+			res.status(400).json({
+				success: false,
+				message: "Missing required fields: name, length, width, height, weight",
+			});
+			return;
+		}
+
+		// Validate positive numeric values
+		if (
+			itemData.length <= 0 ||
+			itemData.width <= 0 ||
+			itemData.height <= 0 ||
+			itemData.weight <= 0
+		) {
+			res.status(400).json({
+				success: false,
+				message: "Length, width, height, and weight must be positive numbers",
+			});
+			return;
+		}
+
+		const response: DatabaseResponse<ShippingItem> =
+			await DataService.shippingItems.add(itemData);
+
+		if (response.success) {
+			res.status(201).json(response);
+		} else {
+			res.status(response.status || 500).json(response);
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * Handler for updating an existing shipping item
+ */
+const updateShippingItem: RequestHandler = async (req, res, next) => {
+	try {
+		const itemId = req.params.id;
+		const updateData: Partial<ShippingItem> = req.body;
+
+		if (!itemId) {
+			res.status(400).json({
+				success: false,
+				message: "Item ID is required",
+			});
+			return;
+		}
+
+		// Add the _id to the update data for the DataService method
+		const itemToUpdate: ShippingItem = {
+			...updateData,
+			_id: itemId,
+		} as ShippingItem;
+
+		// Validate numeric values if provided
+		if (updateData.length !== undefined && updateData.length <= 0) {
+			res.status(400).json({
+				success: false,
+				message: "Length must be a positive number",
+			});
+			return;
+		}
+		if (updateData.width !== undefined && updateData.width <= 0) {
+			res.status(400).json({
+				success: false,
+				message: "Width must be a positive number",
+			});
+			return;
+		}
+		if (updateData.height !== undefined && updateData.height <= 0) {
+			res.status(400).json({
+				success: false,
+				message: "Height must be a positive number",
+			});
+			return;
+		}
+		if (updateData.weight !== undefined && updateData.weight <= 0) {
+			res.status(400).json({
+				success: false,
+				message: "Weight must be a positive number",
+			});
+			return;
+		}
+
+		const response: DatabaseResponse<ShippingItem> =
+			await DataService.shippingItems.update(itemToUpdate);
+
+		if (response.success) {
+			res.status(200).json(response);
+		} else {
+			res.status(response.status || 500).json(response);
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * Handler for deleting a shipping item (soft delete)
+ */
+const deleteShippingItem: RequestHandler = async (req, res, next) => {
+	try {
+		const itemId = req.params.id;
+
+		if (!itemId) {
+			res.status(400).json({
+				success: false,
+				message: "Item ID is required",
+			});
+			return;
+		}
+
+		const response: DatabaseResponse<ShippingItem> =
+			await DataService.shippingItems.delete(itemId);
+
+		if (response.success) {
+			res.status(200).json(response);
+		} else {
+			res.status(response.status || 500).json(response);
+		}
+	} catch (error) {
+		next(error);
+	}
+};
+
+/**
+ * @swagger
+ * /api/shipping/items:
+ *   post:
+ *     summary: Create a new shipping item
+ *     tags: [Shipping]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               length:
+ *                 type: number
+ *               width:
+ *                 type: number
+ *               height:
+ *                 type: number
+ *               weight:
+ *                 type: number
+ *               quantity:
+ *                 type: number
+ *                 default: 1
+ *               sku:
+ *                 type: string
+ *             required:
+ *               - name
+ *               - length
+ *               - width
+ *               - height
+ *               - weight
+ *     responses:
+ *       201:
+ *         description: Item created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/ShippingItem'
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid input data
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/items", createShippingItem);
+
+/**
+ * @swagger
+ * /api/shipping/items/{id}:
+ *   put:
+ *     summary: Update an existing shipping item
+ *     tags: [Shipping]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The item ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               length:
+ *                 type: number
+ *               width:
+ *                 type: number
+ *               height:
+ *                 type: number
+ *               weight:
+ *                 type: number
+ *               quantity:
+ *                 type: number
+ *               sku:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Item updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/ShippingItem'
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid input data
+ *       404:
+ *         description: Item not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put("/items/:id", updateShippingItem);
+
+/**
+ * @swagger
+ * /api/shipping/items/{id}:
+ *   delete:
+ *     summary: Delete a shipping item (soft delete)
+ *     tags: [Shipping]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The item ID
+ *     responses:
+ *       200:
+ *         description: Item deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Item not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete("/items/:id", deleteShippingItem);
+
+/**
+ * Handler for processing invoice PDF files directly
+ * This endpoint handles the full PDF-to-ShippingItems workflow
+ */
+const processInvoicePDF: RequestHandler = async (req, res, next) => {
+	try {
+		if (!req.file) {
+			res.status(400).json({
+				success: false,
+				message: "No file uploaded. Please upload a PDF or text file.",
+			});
+			return;
+		}
+
+		const { buffer, originalname, mimetype } = req.file;
+		const isValidType =
+			mimetype === "application/pdf" ||
+			mimetype === "text/plain" ||
+			originalname.toLowerCase().endsWith(".pdf") ||
+			originalname.toLowerCase().endsWith(".txt");
+
+		if (!isValidType) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid file type. Please upload a PDF or text file.",
+			});
+			return;
+		}
+
+		// Use the existing invoice processing service
+		const {
+			extractTextFromFile,
+			extractInvoiceItemsFromText,
+			estimateItemDimensionsAI,
+			getOrCreateShippingItemsFromInvoice,
+		} = await import("../services/invoiceService");
+		const text = await extractTextFromFile(buffer, mimetype, originalname);
+		const extractedItems = await extractInvoiceItemsFromText(text);
+		const itemsWithDimensions = await estimateItemDimensionsAI(extractedItems);
+		const shippingItems = await getOrCreateShippingItemsFromInvoice(
+			itemsWithDimensions
+		);
+
+		res.status(200).json({
+			success: true,
+			data: shippingItems,
+			message: `Successfully processed invoice and extracted ${shippingItems.length} items`,
+		});
+	} catch (error) {
+		console.error("Error processing invoice PDF:", error);
+		res.status(500).json({
+			success: false,
+			data: [],
+			message:
+				error instanceof Error
+					? error.message
+					: "Failed to process invoice file",
+		});
+	}
+};
+
+/**
+ * @swagger
+ * /api/shipping/process-invoice-pdf:
+ *   post:
+ *     summary: Process PDF or text file to extract shipping items
+ *     tags: [Shipping]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: PDF or text file containing invoice data
+ *     responses:
+ *       200:
+ *         description: Successfully processed invoice file
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ShippingItem'
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Bad request - invalid file or missing file
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/process-invoice-pdf", upload.single("file"), processInvoicePDF);
 
 export default router;

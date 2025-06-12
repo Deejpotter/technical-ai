@@ -12,6 +12,7 @@ import cors from "cors";
 import aiRoutes from "./routes/ai";
 import cncRoutes from "./routes/cnc";
 import shippingRoutes from "./routes/shipping";
+import userRoutes from "./routes/users"; // Import user routes
 import { requireAuth } from "./middleware/clerkAuth";
 
 const app = express();
@@ -32,6 +33,7 @@ app.use("/api/ai", requireAuth, aiRoutes);
 // Mount API routes
 app.use("/api/cnc", cncRoutes);
 app.use("/api/shipping", shippingRoutes);
+app.use("/api/users", requireAuth, userRoutes); // Add user routes, protected by requireAuth
 
 // Health check endpoint for deployment and monitoring
 // Returns 200 OK if the server is running

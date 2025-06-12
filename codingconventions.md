@@ -50,3 +50,22 @@
 - Use Clerk for authentication. All protected endpoints must use the requireAuth middleware from src/middleware/clerkAuth.ts.
 - Document all changes to authentication logic and environment variables in codeupdates.md.
 - Always keep ALLOWED_ORIGINS up to date with all frontend URLs.
+
+## Admin & Role-Based Access Conventions
+
+- Use Clerk's `publicMetadata` for role-based access:
+  - `isAdmin: true` for admin access.
+  - `isMaster: true` for master admin access.
+- Protect sensitive endpoints with `requireMasterAdmin` middleware.
+- Always check `isMaster` for master admin features.
+- Set these fields in the Clerk dashboard for each user as needed.
+- Ensure `.env` includes `CLERK_SECRET_KEY` for backend role checks.
+
+## ShippingItem Model (2025-06-12)
+
+- The `ShippingItem` type is now global (not user-specific) and only includes:
+  - `_id`, `name`, `sku`, `length`, `width`, `height`, `weight` (all required)
+- Do **not** add `userId`, `notes`, `category`, `imageUrl`, or `quantity` fields to `ShippingItem`.
+- The `quantity` property is only used in the frontend UI for the "Selected Items" section and **should not** be stored in the database or backend models.
+- All backend service and route logic must use only these fields for shipping items.
+- Add or update comments in code to clarify the global, simplified model and the separation of UI-only fields like `quantity`.

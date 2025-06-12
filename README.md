@@ -32,6 +32,88 @@ This project serves as a central repository for AI-related technical documentati
     │   └── utils/          # Utility functions and helpers
     └── tests/              # Automated tests
 
+## API Endpoints
+
+### Health Check
+
+* `GET /api/health`: Returns HTTP 200 and a simple JSON payload. Used for deployment health checks.
+
+### User Management (Master Admin Only)
+
+The following endpoints are used for managing user roles and require Master Admin privileges. Access is controlled by the `requireMasterAdmin` middleware, which verifies the user's ID against the `MASTER_ADMIN_USER_ID` environment variable and checks for `publicMetadata.isMaster === true`.
+
+* **`GET /api/users/list-users`**
+  * **Description**: Retrieves a list of all users from Clerk.
+  * **Protection**: Master Admin.
+  * **Response**: JSON array of user objects.
+
+* **`POST /api/users/update-user-role`**
+  * **Description**: Updates the `publicMetadata.isAdmin` status for a specified user.
+  * **Protection**: Master Admin.
+  * **Request Body**:
+
+    ```json
+    {
+      "userIdToUpdate": "user_xxxxxxxxxxxx",
+      "isAdmin": true
+    }
+    ```
+
+  * **Response**: Success message or error details.
+
+## ShippingItem Model (2025-06-12)
+
+* The `ShippingItem` type is now global (not user-specific) and only includes:
+  * `_id`, `name`, `sku`, `length`, `width`, `height`, `weight` (all required)
+* Do not add userId, notes, category, imageUrl, or quantity fields to `ShippingItem`.
+* All service and route logic must use only these fields for shipping items.
+* Add or update comments in code to clarify the global, simplified model.
+
+## Clerk Authentication & Admin Roles
+
+* All authentication is handled by Clerk. Endpoints requiring authentication use the `requireAuth` middleware.
+* Admin and Master Admin roles are determined by Clerk `publicMetadata`:
+  * `isAdmin: true` for admin access.
+  * `isMaster: true` (and userId matches `MASTER_ADMIN_USER_ID` in `.env`) for master admin access.
+* Only the Master Admin can manage user roles via the user management endpoints.
+* Never include sensitive config data (like Clerk API keys) in documentation or code comments.
+* See `codingconventions.md` for more details on role-based access and environment variable setup.
+
+## User Management API & Admin Roles
+
+The backend provides endpoints for user management, protected by a two-tiered admin system using Clerk metadata and environment variables.
+
+### Endpoints
+
+* `GET /api/users/list-users`: List all users. Requires Master Admin privileges.
+* `POST /api/users/update-user-role`: Update a user's `publicMetadata.isAdmin` status. Requires Master Admin privileges.
+
+### Admin Role Logic
+
+* **Admin**: Any user with `publicMetadata.isAdmin: true` in Clerk.
+* **Master Admin**: User with `publicMetadata.isMaster: true` and a userId matching `MASTER_ADMIN_USER_ID` in `.env`.
+* Only the Master Admin can manage user roles via these endpoints.
+
+### Configuration & Troubleshooting
+
+* Set `CLERK_SECRET_KEY` and `MASTER_ADMIN_USER_ID` in your `.env` file.
+* Set user roles in Clerk dashboard publicMetadata:
+  * Master Admin: `{ "isAdmin": true, "isMaster": true }`
+  * Admin: `{ "isAdmin": true }`
+* If admin endpoints do not work, check:
+  * The backend is running and accessible.
+  * The logged-in user has the correct Clerk metadata and userId.
+  * Environment variables are set correctly.
+
+### Environment Variables
+
+Ensure the following environment variables are set in your `.env` file:
+
+* `CLERK_SECRET_KEY`: Your Clerk secret key for backend authentication and API calls. This is crucial for verifying JWTs and interacting with the Clerk API.
+* `MASTER_ADMIN_USER_ID`: The Clerk User ID of the designated Master Admin. This user will have special privileges, such as managing other users' admin roles.
+* `PORT`: The port on which the server will run (e.g., `5000`).
+* `ALLOWED_ORIGINS`: Comma-separated list of allowed origins for CORS (e.g., `http://localhost:3000,https://your-frontend-domain.com`).
+
 ## Getting Started
 
 1. **Clone the repo:** `git clone <repo-url>`
