@@ -14,6 +14,16 @@ if (!process.env.CLERK_SECRET_KEY) {
 	// throw new Error("CLERK_SECRET_KEY is not defined. Please set it in your .env file.");
 }
 
+// Log all user management API requests
+router.use((req, res, next) => {
+	console.log(
+		`[Users] ${req.method} ${req.originalUrl} by userId: ${
+			(req as any).auth?.userId
+		}`
+	);
+	next();
+});
+
 // Handlers remain as async functions returning Promise<void>
 const updateUserRoleHandler = async (
 	req: express.Request,

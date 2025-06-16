@@ -20,6 +20,8 @@
 - Dependencies: `multer` for file uploads, `pdf-parse` for text extraction.
 - Endpoint: Likely `POST /api/invoice/process-pdf`, protected by `requireAuth`.
 - Service: Updates to `src/services/invoiceService.ts` to handle PDF buffer and integrate `pdf-parse`.
+- Mounted protected invoiceRoutes at /api/invoice (PDF processing endpoint is now /api/invoice/process-pdf, Clerk-protected)
+- Updated frontend PdfImport.backend.tsx to use /api/invoice/process-pdf and send file as 'invoiceFile'
 
 ## (paused) - June 11, 2025 (Box Shipping Calculator Implementation)
 
@@ -51,6 +53,17 @@
 - All build and type checks pass. All authentication and user management endpoints work as expected.
 - Some BoxCalculations.test.ts tests still fail (business logic, not related to Clerk migration).
 - Updated README.md and codingconventions.md to document Clerk backend usage and conventions.
+
+## (completed) - June 12, 2025 (Logging Middleware & TypeScript Fix)
+
+- Fixed TypeScript error for custom Express.Request property _requestTime by extending the type in app.ts.
+- Logging middleware now works and build passes.
+- All API requests, errors, and 404s are logged with timestamps and details.
+- yarn test: BoxCalculations.test.ts still has 7 failing tests (business logic, not logging or build related).
+
+## (in progress) - June 12, 2025 (BoxCalculations Logic)
+
+- Investigating and debugging failing tests in BoxCalculations.test.ts. These are not related to logging or authentication.
 
 ---
 

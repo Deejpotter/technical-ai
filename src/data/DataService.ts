@@ -38,9 +38,7 @@ export const DataService = {
 	 * Can be used to perform any necessary setup like loading initial data
 	 */
 	initialize: async (): Promise<void> => {
-		// MongoDBProvider does not have syncWithRemote, initialization might involve other setup
-		// For now, this can be a placeholder or connect to the DB if not already.
-		// await dataProvider.connect(); // Example if connect method exists
+		console.log("[DataService] initialize called.");
 		console.log("DataService initialized.");
 	},
 

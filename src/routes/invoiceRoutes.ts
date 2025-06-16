@@ -27,6 +27,13 @@ router.post(
 	requireAuth(),
 	upload.single("invoiceFile"),
 	async (req, res, next): Promise<void> => {
+		console.log(
+			`[Invoice] /process-pdf called. User: ${
+				(req as any).auth?.userId
+			}, File:`,
+			req.file?.originalname
+		);
+
 		/**
 		 * TypeScript/Express type compatibility:
 		 * Express expects handlers to use the base Request type, but the requireAuth middleware attaches Clerk auth info.
@@ -61,7 +68,7 @@ router.post(
 			res.status(200).json(extractedItems);
 			return;
 		} catch (error: any) {
-			console.error("Error processing invoice PDF:", error);
+			console.error("[Invoice] Error processing invoice PDF:", error);
 			if (error.message.includes("Unsupported file type")) {
 				res.status(400).json({ error: error.message });
 				return;

@@ -34,7 +34,7 @@ export async function extractTextFromFile(
 	fileName: string
 ): Promise<string> {
 	console.log(
-		`Attempting to extract text from: ${fileName}, type: ${fileType}`
+		`[InvoiceService] extractTextFromFile called. fileName: ${fileName}, fileType: ${fileType}`
 	);
 	try {
 		if (
@@ -63,7 +63,10 @@ export async function extractTextFromFile(
 			);
 		}
 	} catch (error: any) {
-		console.error(`Error extracting text from ${fileName}:`, error);
+		console.error(
+			`[InvoiceService] Error extracting text from ${fileName}:`,
+			error
+		);
 		throw new Error(
 			`Failed to extract text from ${fileName}. Error: ${error.message}`
 		);

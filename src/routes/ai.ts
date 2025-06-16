@@ -64,6 +64,7 @@ const handleChatRequest: RequestHandler = async (
 	res: Response,
 	next: NextFunction
 ) => {
+	console.log(`[AI] /chat called. Body:`, req.body);
 	try {
 		const chatBody: ChatBody = req.body;
 
@@ -91,6 +92,7 @@ const handleChatRequest: RequestHandler = async (
 				}
 			}
 			res.end();
+			console.log(`[AI] /chat streaming response complete.`);
 		} catch (streamError) {
 			if (!res.headersSent) {
 				// Let the main error handler deal with it by re-throwing or passing to next
@@ -104,6 +106,7 @@ const handleChatRequest: RequestHandler = async (
 			}
 		}
 	} catch (error) {
+		console.error(`[AI] /chat error:`, error);
 		next(error); // Pass error to the Express error handler
 	}
 };

@@ -888,4 +888,10 @@ const processInvoicePDF: RequestHandler = async (req, res, next) => {
  */
 router.post("/process-invoice-pdf", upload.single("file"), processInvoicePDF);
 
+// Log all incoming shipping requests
+router.use((req, res, next) => {
+	console.log(`[Shipping] ${req.method} ${req.originalUrl}`);
+	next();
+});
+
 export default router;

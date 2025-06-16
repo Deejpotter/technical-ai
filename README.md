@@ -61,6 +61,11 @@ The following endpoints are used for managing user roles and require Master Admi
 
   * **Response**: Success message or error details.
 
+### Invoice Processing (Protected)
+
+* The PDF invoice processing endpoint is `/api/invoice/process-pdf` and is protected by Clerk authentication.
+* Frontend must send the file as `invoiceFile` in the FormData.
+
 ## ShippingItem Model (2025-06-12)
 
 * The `ShippingItem` type is now global (not user-specific) and only includes:
@@ -114,6 +119,14 @@ Ensure the following environment variables are set in your `.env` file:
 * `MASTER_ADMIN_USER_ID`: The Clerk User ID of the designated Master Admin. This user will have special privileges, such as managing other users' admin roles.
 * `PORT`: The port on which the server will run (e.g., `5000`).
 * `ALLOWED_ORIGINS`: Comma-separated list of allowed origins for CORS (e.g., `http://localhost:3000,https://your-frontend-domain.com`).
+
+## Logging & Debugging
+
+* All API requests, responses, and errors are now logged to the backend console.
+* Logs include method, path, request body, userId (if available), and error details.
+* Use the backend console output to debug issues and verify API activity.
+* If you see errors in the frontend but not in the backend console, check that the backend is running and logging is not suppressed.
+* See `codingconventions.md` for more details on logging conventions.
 
 ## Getting Started
 

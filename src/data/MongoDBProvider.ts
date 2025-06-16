@@ -100,6 +100,9 @@ export class MongoDBProvider implements DataProvider {
 		collection: string,
 		options?: DataProviderOptions
 	): Promise<DatabaseResponse<T[]>> {
+		console.log(
+			`[MongoDBProvider] getAllDocuments called. collection: ${collection}`
+		);
 		try {
 			const collectionName = this.getCollectionName(collection, options);
 			const coll = await getCollection(collectionName);
@@ -112,7 +115,10 @@ export class MongoDBProvider implements DataProvider {
 				message: "Documents retrieved successfully",
 			};
 		} catch (error: any) {
-			console.error(`Error fetching all documents from ${collection}:`, error);
+			console.error(
+				`[MongoDBProvider] Error fetching all documents from ${collection}:`,
+				error
+			);
 			return {
 				success: false,
 				data: [], // Ensure data is an empty array on error

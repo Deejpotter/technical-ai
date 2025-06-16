@@ -414,6 +414,10 @@ export function packItemsIntoMultipleBoxes(
 	}
 
 	// console.log("[BoxCalc] Starting Extreme Point-based packing algorithm"); // Optional: for debugging
+	console.log(
+		`[BoxCalc] packItemsIntoMultipleBoxes called. itemsToPack:`,
+		itemsToPack
+	);
 
 	// Attempt to pack all items into a single box first.
 	// This is often the most cost-effective and simplest solution.

@@ -69,3 +69,14 @@
 - The `quantity` property is only used in the frontend UI for the "Selected Items" section and **should not** be stored in the database or backend models.
 - All backend service and route logic must use only these fields for shipping items.
 - Add or update comments in code to clarify the global, simplified model and the separation of UI-only fields like `quantity`.
+
+## Logging Conventions
+
+- Log all incoming API requests with method, path, and request body (for POST/PUT).
+- Log all outgoing responses, especially errors, with status, error message, and userId if available.
+- In middleware, log authentication and authorization events (success and failure).
+- In services and data providers, log all major actions and errors.
+- Use clear, contextual messages (e.g., [Users], [AI], [Auth], [Shipping], etc.) for easy filtering.
+- Never log sensitive data (e.g., passwords, tokens).
+- Use the backend console output to debug and monitor API activity.
+- All errors must be logged with as much context as possible (userId, request path, etc.).

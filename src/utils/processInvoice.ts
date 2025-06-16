@@ -170,6 +170,7 @@ async function estimateItemDimensions(
 ): Promise<
 	Array<ExtractedItem & { length: number; width: number; height: number }>
 > {
+	console.log(`[ProcessInvoice] estimateItemDimensions called. items:`, items);
 	try {
 		// gpt-4o-mini is the recommended model for basic tasks now.
 		const response = await openai.chat.completions.create({

@@ -20,6 +20,9 @@ export const requireAuthMiddleware = async (
 	res: Response,
 	next: NextFunction
 ): Promise<void> => {
+	console.log(
+		`[Auth] Incoming request: ${req.method} ${req.originalUrl}, Authorization: ${req.headers.authorization}`
+	);
 	try {
 		// Extract token from Authorization header
 		// Expected format: "Bearer <jwt_token>"
@@ -40,6 +43,7 @@ export const requireAuthMiddleware = async (
 			if (!userId) {
 				throw new Error("User not found");
 			}
+			console.log(`[Auth] Clerk token verified. userId: ${userId}`);
 			// Add user ID to request object for use in route handlers
 			req.userId = userId;
 			// Optionally, fetch full user details from Clerk
@@ -47,7 +51,7 @@ export const requireAuthMiddleware = async (
 			// req.user = user;
 			next();
 		} catch (clerkError: any) {
-			console.error("Clerk token verification failed:", clerkError);
+			console.error("[Auth] Clerk token verification failed:", clerkError);
 			res.status(401).json({
 				error: "Invalid token",
 				message: "Token verification failed",
@@ -55,7 +59,7 @@ export const requireAuthMiddleware = async (
 			return;
 		}
 	} catch (error) {
-		console.error("Authentication middleware error:", error);
+		console.error("[Auth] Authentication middleware error:", error);
 		res.status(500).json({
 			error: "Authentication error",
 			message: "Internal server error during authentication",
