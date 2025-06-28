@@ -91,15 +91,15 @@ async function processWithAI(text: string): Promise<ExtractedItem[]> {
 					
 						The SKU and LCN can be very similar, so ensure you extract the SKU correctly:
 
+						WRONG:
 						LCN: D-06-V
 						LCN: E-06-T
 						LCN: G09
 
+						RIGHT:
 						SKU: ELEC-VFD-1500
 						SKU: TR-BS-SFU1204-300
 						SKU: LR-40-8-4080-S-3050
-
-						I want the SKU.
 						`,
 				},
 				{
@@ -334,7 +334,6 @@ async function getItemDimensions(
 			finalShippingItems.push({
 				...dbItem, // Includes _id, name, length, width, height, sku, createdAt, updatedAt, deletedAt from DB
 				weight: dbItem.weight, // Always trust DB weight
-				// NOTE: Do not add quantity here; quantity is UI-only per coding conventions
 			});
 			continue; // Skip adding a new item to the DB
 		}
@@ -357,6 +356,8 @@ async function getItemDimensions(
 			// For small hardware, clamp to 100g max
 			safeWeight = 100;
 		}
+
+		// Prepare the new item data for DB insertion
 		const newItemDataForDb = {
 			name: estimatedItemDetails.name,
 			sku: estimatedItemDetails.sku.trim().toUpperCase(),
@@ -364,8 +365,9 @@ async function getItemDimensions(
 			width: estimatedItemDetails.width,
 			height: estimatedItemDetails.height,
 			weight: safeWeight,
-			// quantity: 1, // REMOVED: quantity is UI-only, not part of backend model
 		};
+
+		// Then try to add the new item to the DB.
 		try {
 			const creationResponse = await DataService.shippingItems.add(
 				newItemDataForDb as Omit<
@@ -377,7 +379,6 @@ async function getItemDimensions(
 			if (creationResponse.success && creationResponse.data) {
 				finalShippingItems.push({
 					...creationResponse.data,
-					// quantity: invoiceItem.quantity, // REMOVED: quantity is UI-only, not part of backend model
 				});
 			} else {
 				const tempId = `temp_${Date.now()}_${invoiceItem.sku}`;
@@ -392,7 +393,6 @@ async function getItemDimensions(
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					deletedAt: null,
-					// quantity: invoiceItem.quantity, // REMOVED: quantity is UI-only, not part of backend model
 				});
 			}
 		} catch (error) {
@@ -408,7 +408,6 @@ async function getItemDimensions(
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,
-				// quantity: invoiceItem.quantity, // REMOVED: quantity is UI-only, not part of backend model
 			});
 		}
 	}
