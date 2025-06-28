@@ -1,5 +1,23 @@
 # Code Updates Log
 
+## (in progress) - June 28, 2025 (Improve wrapAsync Utility Comments)
+
+- Added detailed, in-line comments to `src/utils/wrapAsync.ts` to clarify its purpose, usage, and best practices for async error handling in Express routes.
+- Comments now reflect my preferred style and explain why this pattern is used throughout the backend.
+- No code logic was changed.
+- Next: Review if any additional documentation is needed in README.md or codingconventions.md about async error handling conventions.
+
+## (in progress) - June 28, 2025 (Improved Documentation for wrapAsync Utility)
+
+- **Goal:** Improve and clarify the comments and documentation in `src/utils/wrapAsync.ts` to explain its purpose, usage, and reasoning from the maintainer's perspective.
+- **Details:**
+  - Expanded comments to describe why `wrapAsync` exists, how it should be used, and its importance for async error handling in Express.js routes.
+  - No code changes were made; only documentation was improved for maintainability and onboarding.
+  - This helps future maintainers understand the rationale and ensures consistent usage across the codebase.
+- **Next Steps:**
+  - Review `README.md` and `codingconventions.md` to ensure error handling conventions are documented.
+  - Mark this entry as (completed) once documentation is up to date and conventions are clear.
+
 ## (in progress) - June 12, 2025 (ShippingItem Simplification & Type Consistency)
 
 - **Goal:** Simplify the `ShippingItem` logic in the `technical-ai` backend so that shipping items are global (not user-specific), and ensure the codebase and type definitions reflect this.

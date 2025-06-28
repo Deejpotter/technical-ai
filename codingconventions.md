@@ -80,3 +80,16 @@
 - Never log sensitive data (e.g., passwords, tokens).
 - Use the backend console output to debug and monitor API activity.
 - All errors must be logged with as much context as possible (userId, request path, etc.).
+
+## Async Error Handling in Express
+
+- Always use the `wrapAsync` utility (see `src/utils/wrapAsync.ts`) to wrap all async route handlers.
+- This avoids repetitive try/catch blocks and ensures all errors are passed to Express's error middleware via `next(err)`.
+- Example usage:
+
+  ```js
+  router.get('/api/some-route', wrapAsync(async (req, res) => { ... }));
+  ```
+
+- This is my preferred pattern for all async routes, as it keeps the codebase clean and avoids subtle bugs where errors might otherwise be swallowed or not logged properly.
+- See the in-line comments in `wrapAsync.ts` for more details.
