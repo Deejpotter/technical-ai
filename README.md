@@ -61,18 +61,46 @@ The following endpoints are used for managing user roles and require Master Admi
 
   * **Response**: Success message or error details.
 
+### Shipping Item Management (Protected)
+
+The following endpoints manage shipping items for the Box Shipping Calculator:
+
+* **`GET /api/shipping/items`**
+  * **Description**: Retrieves all shipping items from the database.
+  * **Protection**: Clerk authentication required.
+  * **Response**: JSON array of shipping item objects.
+
+* **`POST /api/shipping/items`**
+  * **Description**: Creates a new shipping item.
+  * **Protection**: Clerk authentication required.
+  * **Request Body**: JSON object with shipping item data (name, sku, length, width, height, weight).
+  * **Response**: Created shipping item object.
+
+* **`PUT /api/shipping/items/:id`**
+  * **Description**: Updates an existing shipping item by ID.
+  * **Protection**: Clerk authentication required.
+  * **Request Body**: JSON object with updated shipping item data.
+  * **Response**: Updated shipping item object.
+
+* **`DELETE /api/shipping/items/:id`**
+  * **Description**: Deletes a shipping item by ID.
+  * **Protection**: Clerk authentication required.
+  * **Response**: Success confirmation.
+
 ### Invoice Processing (Protected)
 
 * The PDF invoice processing endpoint is `/api/invoice/process-pdf` and is protected by Clerk authentication.
 * Frontend must send the file as `invoiceFile` in the FormData.
 
-## ShippingItem Model (2025-06-12)
+## ShippingItem Model (Updated January 2025)
 
 * The `ShippingItem` type is now global (not user-specific) and only includes:
   * `_id`, `name`, `sku`, `length`, `width`, `height`, `weight` (all required)
 * Do not add userId, notes, category, imageUrl, or quantity fields to `ShippingItem`.
 * All service and route logic must use only these fields for shipping items.
 * Add or update comments in code to clarify the global, simplified model.
+* **CRUD Operations**: Full Create, Read, Update, Delete operations are supported via the shipping endpoints.
+* **Frontend Integration**: The frontend performs optimistic UI updates with backend synchronization for immediate user feedback.
 
 ## Clerk Authentication & Admin Roles
 
@@ -231,3 +259,66 @@ All deprecated functions have been removed to prevent confusion:
 * ✅ `processInvoiceFileModular` (current implementation)
 
 The system now has a single, clear pathway for invoice processing using modern OpenAI function calling.
+
+## Optimistic UI Updates & Frontend/Backend Sync (January 2025)
+
+The application implements optimistic UI updates for better user experience:
+
+### Pattern Overview
+
+1. **Immediate UI Updates**: Changes are reflected in the UI immediately upon user action.
+2. **Background Sync**: Backend API calls happen in the background to persist changes.
+3. **Error Handling**: If backend calls fail, UI can be reverted or show error states.
+4. **Consistency**: Frontend state management ensures UI stays in sync with backend data.
+
+### Implementation Guidelines
+
+* **State Management**: Parent components manage shared state and pass update callbacks to child components.
+* **Callback Props**: Use `onItemUpdate`, `onItemDelete` patterns for immediate state updates.
+* **Error Handling**: Always handle both success and failure cases for backend operations.
+* **Loading States**: Provide visual feedback during operations when appropriate.
+
+### SSR/Client Consistency
+
+To avoid Next.js hydration errors:
+
+* Use `isMounted` state to ensure consistent server-side and client-side rendering.
+* Use predictable, deterministic IDs instead of time-based IDs for temporary items.
+* Ensure initial state is the same on server and client.
+
+### Best Practices
+
+* Test both optimistic updates and actual backend sync.
+* Implement proper error boundaries and fallback states.
+* Document state flow and callback patterns in component comments.
+* Use TypeScript for type safety in callback functions and state management.
+
+## Testing Best Practices (January 2025)
+
+### API Endpoint Testing
+
+* Test all CRUD operations (GET, POST, PUT, DELETE) with proper authentication.
+* Verify HTTP status codes and response formats for both success and error cases.
+* Use mock authentication tokens for consistent testing.
+* Test edge cases like invalid IDs, malformed request bodies, and missing authentication.
+
+### Integration Testing
+
+* Test frontend-backend integration with actual API calls during development.
+* Use PowerShell or curl commands to verify endpoint functionality independently.
+* Test optimistic UI updates by simulating both successful and failed backend operations.
+
+### Error Handling Testing
+
+* Verify that proper error messages and status codes are returned.
+* Test that failed operations don't corrupt application state.
+* Ensure proper logging of errors with sufficient context for debugging.
+
+### Example PowerShell API Testing
+
+    # Test GET endpoint
+    Invoke-RestMethod -Uri "http://localhost:5000/api/shipping/items" -Method GET -Headers @{Authorization="Bearer $jwt"}
+
+    # Test POST endpoint
+    $body = @{name="Test Item"; sku="TEST001"; length=10; width=5; height=3; weight=2} | ConvertTo-Json
+    Invoke-RestMethod -Uri "http://localhost:5000/api/shipping/items" -Method POST -Headers @{Authorization="Bearer $jwt"; "Content-Type"="application/json"} -Body $body
