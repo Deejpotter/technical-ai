@@ -49,30 +49,27 @@ router.post(
 		req: Request<any, any, { user_message: string }>,
 		res: Response<ChatResponse>
 	) => {
+		console.log(`[Index] /ask called. user_message:`, req.body.user_message);
 		try {
 			const userMessage = req.body.user_message;
 			const botResponse = await chatEngine.processUserInput(userMessage);
+			console.log(`[Index] /ask response:`, botResponse);
 			res.json({ bot_response: botResponse });
 		} catch (error: any) {
+			console.error(`[Index] /ask error:`, error);
 			if (error instanceof TypeError || error.name === "KeyError") {
-				// logger.error(`KeyError or TypeError occurred: ${error.message}`);
-				console.error(`KeyError or TypeError occurred: ${error.message}`);
 				res.status(500).json({
-					bot_response: "", // Added to satisfy ChatResponse type
+					bot_response: "",
 					error: "An error occurred while processing your request.",
 				});
 			} else if (error instanceof Error) {
-				// logger.error(`An unexpected error occurred: ${error.message}`);
-				console.error(`An unexpected error occurred: ${error.message}`);
 				res.status(500).json({
-					bot_response: "", // Added to satisfy ChatResponse type
+					bot_response: "",
 					error: "An unexpected error occurred.",
 				});
 			} else {
-				// logger.error("An unexpected non-error object was thrown:", error);
-				console.error("An unexpected non-error object was thrown:", error);
 				res.status(500).json({
-					bot_response: "", // Added to satisfy ChatResponse type
+					bot_response: "",
 					error: "An unexpected error occurred.",
 				});
 			}
@@ -103,6 +100,7 @@ router.post(
 router.post(
 	"/add_qa",
 	async (req: Request<any, any, Partial<QAPair>>, res: Response) => {
+		console.log(`[Index] /add_qa called. Payload:`, req.body);
 		const { question = "", answer = "" } = req.body;
 		const data = { question, answer };
 		await dataManager.create(data);

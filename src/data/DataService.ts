@@ -5,24 +5,13 @@
  * Description: This file contains the DataService class, responsible for orchestrating data interactions with the underlying data provider.
  */
 
-/**
- * Data Service (migrated from sample code)
- * Updated: 2025-06-08
- * Author: Deej Potter (original), migrated by Daniel
- * Description: Centralized service for data operations across the backend API.
- * Provides specialized methods for each domain model and user-specific data.
- *
- * NOTE: This file was migrated from sample code/utils/data/DataService.ts
- * and adapted for backend use. Comments and logic have been preserved and improved.
- */
-
-import ShippingItem from "../types/ShippingItem"; // Adjusted import path
-import { DatabaseResponse, MongoDocument } from "../types/mongodb"; // Adjusted import path
+import ShippingItem from "../types/ShippingItem";
+import { DatabaseResponse, MongoDocument } from "../types/mongodb";
 import {
 	DataProvider,
 	DataProviderOptions,
 	DEFAULT_OPTIONS,
-} from "./DataProvider"; // Corrected import
+} from "./DataProvider";
 import { MongoDBProvider } from "./MongoDBProvider";
 
 // Singleton instance of the MongoDB provider, typed as DataProvider
@@ -38,9 +27,7 @@ export const DataService = {
 	 * Can be used to perform any necessary setup like loading initial data
 	 */
 	initialize: async (): Promise<void> => {
-		// MongoDBProvider does not have syncWithRemote, initialization might involve other setup
-		// For now, this can be a placeholder or connect to the DB if not already.
-		// await dataProvider.connect(); // Example if connect method exists
+		console.log("[DataService] initialize called.");
 		console.log("DataService initialized.");
 	},
 

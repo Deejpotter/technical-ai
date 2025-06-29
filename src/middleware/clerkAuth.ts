@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { verifyToken } from "@clerk/backend";
+import { requireAuth, getAuth } from "@clerk/express";
 
 /**
  * Interface extending Express Request to include user information
@@ -15,11 +15,14 @@ export interface AuthenticatedRequest extends Request {
  * Extracts the token from Authorization header and verifies it with Clerk
  * Adds user information to the request object for downstream handlers
  */
-export const requireAuth = async (
+export const requireAuthMiddleware = async (
 	req: AuthenticatedRequest,
 	res: Response,
 	next: NextFunction
 ): Promise<void> => {
+	console.log(
+		`[Auth] Incoming request: ${req.method} ${req.originalUrl}, Authorization: ${req.headers.authorization}`
+	);
 	try {
 		// Extract token from Authorization header
 		// Expected format: "Bearer <jwt_token>"
@@ -36,17 +39,19 @@ export const requireAuth = async (
 		try {
 			// Verify the JWT token with Clerk
 			// This will throw an error if the token is invalid or expired
-			const payload = await verifyToken(token, {
-				secretKey: process.env.CLERK_SECRET_KEY,
-			});
+			const { userId } = getAuth(req);
+			if (!userId) {
+				throw new Error("User not found");
+			}
+			console.log(`[Auth] Clerk token verified. userId: ${userId}`);
 			// Add user ID to request object for use in route handlers
-			req.userId = payload.sub;
+			req.userId = userId;
 			// Optionally, fetch full user details from Clerk
 			// const user = await clerkClient.users.getUser(payload.sub);
 			// req.user = user;
 			next();
 		} catch (clerkError: any) {
-			console.error("Clerk token verification failed:", clerkError);
+			console.error("[Auth] Clerk token verification failed:", clerkError);
 			res.status(401).json({
 				error: "Invalid token",
 				message: "Token verification failed",
@@ -54,7 +59,7 @@ export const requireAuth = async (
 			return;
 		}
 	} catch (error) {
-		console.error("Authentication middleware error:", error);
+		console.error("[Auth] Authentication middleware error:", error);
 		res.status(500).json({
 			error: "Authentication error",
 			message: "Internal server error during authentication",
@@ -77,10 +82,10 @@ export const optionalAuth = async (
 		if (authHeader && authHeader.startsWith("Bearer ")) {
 			const token = authHeader.substring(7);
 			try {
-				const payload = await verifyToken(token, {
-					secretKey: process.env.CLERK_SECRET_KEY,
-				});
-				req.userId = payload.sub;
+				const { userId } = getAuth(req);
+				if (userId) {
+					req.userId = userId;
+				}
 			} catch (clerkError: any) {
 				// Token is invalid, but we continue without authentication
 				console.warn("Optional auth - invalid token:", clerkError.message);
@@ -92,3 +97,5 @@ export const optionalAuth = async (
 		next(); // Continue even if there's an error
 	}
 };
+
+export { requireAuth, getAuth } from "@clerk/express";

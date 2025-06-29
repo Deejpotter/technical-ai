@@ -55,12 +55,18 @@ export function getClientPromise(): Promise<MongoClient> {
  * @throws Will throw an error if the database connection fails.
  */
 export async function getCollection(collectionName: string) {
+	console.log(
+		`[MongoClient] getCollection called. collectionName: ${collectionName}`
+	);
 	try {
 		const mongoClient = await getClientPromise();
 		const db = mongoClient.db(dbName);
 		return db.collection(collectionName);
 	} catch (error) {
-		console.error("Database connection or collection access error:", error);
+		console.error(
+			`[MongoClient] Database connection or collection access error:`,
+			error
+		);
 		// Propagate the error to be handled by the caller
 		throw new Error(
 			`Failed to get collection '${collectionName}': ${

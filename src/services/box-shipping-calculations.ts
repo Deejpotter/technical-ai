@@ -312,10 +312,8 @@ export function findBestBox(itemsToPack: ShippingItem[]): {
 
 	const expandedItems: ShippingItem[] = [];
 	for (const item of itemsToPack) {
-		const quantity = item.quantity || 1;
-		for (let i = 0; i < quantity; i++) {
-			expandedItems.push({ ...item, quantity: 1 });
-		}
+		// If you need to handle multiple quantities, repeat the item in the input array.
+		expandedItems.push(item);
 	}
 
 	let longestItemDimension = 0;
@@ -373,32 +371,8 @@ function groupPackedItemsByOriginal(
 	packedItems: PackedItem[],
 	originalItems: ShippingItem[]
 ): ShippingItem[] {
-	const itemCounts: { [key: string]: number } = {};
-
-	for (const packedItem of packedItems) {
-		// Ensure a consistent key, using _id if available, otherwise a composite of properties
-		const key = packedItem.item._id
-			? packedItem.item._id.toString()
-			: `${packedItem.item.name}-${packedItem.item.length}-${packedItem.item.width}-${packedItem.item.height}`;
-		itemCounts[key] = (itemCounts[key] || 0) + 1;
-	}
-
-	const result: ShippingItem[] = [];
-	for (const item of originalItems) {
-		const key = item._id
-			? item._id.toString()
-			: `${item.name}-${item.length}-${item.width}-${item.height}`;
-		const count = itemCounts[key];
-
-		if (count) {
-			result.push({
-				...item,
-				quantity: count,
-			});
-			delete itemCounts[key]; // Avoid double counting if originalItems had duplicates not distinguished by key
-		}
-	}
-	return result;
+	// Since ShippingItem no longer has quantity, just return the packed items as-is.
+	return packedItems.map((p) => p.item);
 }
 
 /**
@@ -440,6 +414,10 @@ export function packItemsIntoMultipleBoxes(
 	}
 
 	// console.log("[BoxCalc] Starting Extreme Point-based packing algorithm"); // Optional: for debugging
+	console.log(
+		`[BoxCalc] packItemsIntoMultipleBoxes called. itemsToPack:`,
+		itemsToPack
+	);
 
 	// Attempt to pack all items into a single box first.
 	// This is often the most cost-effective and simplest solution.
@@ -476,10 +454,8 @@ export function packItemsIntoMultipleBoxes(
 
 	const expandedItems: ShippingItem[] = [];
 	for (const item of itemsToPack) {
-		const quantity = item.quantity || 1;
-		for (let i = 0; i < quantity; i++) {
-			expandedItems.push({ ...item, quantity: 1 }); // Ensure each item is treated individually
-		}
+		// If you need to handle multiple quantities, repeat the item in the input array.
+		expandedItems.push(item);
 	}
 
 	expandedItems.sort((a, b) => {

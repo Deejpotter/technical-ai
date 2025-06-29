@@ -91,15 +91,15 @@ async function processWithAI(text: string): Promise<ExtractedItem[]> {
 					
 						The SKU and LCN can be very similar, so ensure you extract the SKU correctly:
 
+						WRONG:
 						LCN: D-06-V
 						LCN: E-06-T
 						LCN: G09
 
+						RIGHT:
 						SKU: ELEC-VFD-1500
 						SKU: TR-BS-SFU1204-300
 						SKU: LR-40-8-4080-S-3050
-
-						I want the SKU.
 						`,
 				},
 				{
@@ -170,6 +170,7 @@ async function estimateItemDimensions(
 ): Promise<
 	Array<ExtractedItem & { length: number; width: number; height: number }>
 > {
+	console.log(`[ProcessInvoice] estimateItemDimensions called. items:`, items);
 	try {
 		// gpt-4o-mini is the recommended model for basic tasks now.
 		const response = await openai.chat.completions.create({
@@ -332,16 +333,20 @@ async function getItemDimensions(
 			// If the item already exists in the DB, always use the DB record and never add a duplicate.
 			finalShippingItems.push({
 				...dbItem, // Includes _id, name, length, width, height, sku, createdAt, updatedAt, deletedAt from DB
-				quantity: invoiceItem.quantity, // Aggregated quantity from the current invoice
 				weight: dbItem.weight, // Always trust DB weight
 			});
 			continue; // Skip adding a new item to the DB
 		}
 
 		// If the item does not exist in the DB, estimate dimensions and add it
-		const [estimatedItemDetails] = await estimateItemDimensions([invoiceItem]);
+		const estimatedItems = await estimateItemDimensions([invoiceItem]);
+		const estimatedItemDetails =
+			estimatedItems && estimatedItems.length > 0 ? estimatedItems[0] : null;
 
 		if (!estimatedItemDetails) {
+			console.warn(
+				`[ProcessInvoice] AI estimation failed or returned empty for item: ${invoiceItem.name} (SKU: ${invoiceItem.sku}). Skipping.`
+			);
 			continue; // Skip if estimation fails
 		}
 
@@ -356,6 +361,8 @@ async function getItemDimensions(
 			// For small hardware, clamp to 100g max
 			safeWeight = 100;
 		}
+
+		// Prepare the new item data for DB insertion
 		const newItemDataForDb = {
 			name: estimatedItemDetails.name,
 			sku: estimatedItemDetails.sku.trim().toUpperCase(),
@@ -363,8 +370,9 @@ async function getItemDimensions(
 			width: estimatedItemDetails.width,
 			height: estimatedItemDetails.height,
 			weight: safeWeight,
-			quantity: 1, // Individual items, quantity will be set from invoice data
 		};
+
+		// Then try to add the new item to the DB.
 		try {
 			const creationResponse = await DataService.shippingItems.add(
 				newItemDataForDb as Omit<
@@ -376,7 +384,6 @@ async function getItemDimensions(
 			if (creationResponse.success && creationResponse.data) {
 				finalShippingItems.push({
 					...creationResponse.data,
-					quantity: invoiceItem.quantity,
 				});
 			} else {
 				const tempId = `temp_${Date.now()}_${invoiceItem.sku}`;
@@ -388,7 +395,6 @@ async function getItemDimensions(
 					width: newItemDataForDb.width,
 					height: newItemDataForDb.height,
 					weight: newItemDataForDb.weight,
-					quantity: invoiceItem.quantity,
 					createdAt: new Date(),
 					updatedAt: new Date(),
 					deletedAt: null,
@@ -404,7 +410,6 @@ async function getItemDimensions(
 				width: newItemDataForDb.width,
 				height: newItemDataForDb.height,
 				weight: newItemDataForDb.weight,
-				quantity: invoiceItem.quantity,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				deletedAt: null,

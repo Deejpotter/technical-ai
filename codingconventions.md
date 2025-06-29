@@ -47,6 +47,124 @@
 
 ## Authentication & CORS
 
-- Use Clerk for authentication. All protected endpoints must use the requireAuth middleware from src/middleware/clerkAuth.ts.
+- Use Clerk for authentication. All protected endpoints must use the requireAuth() middleware from src/middleware/clerkAuth.ts (note: requireAuth must be called as a function).
 - Document all changes to authentication logic and environment variables in codeupdates.md.
 - Always keep ALLOWED_ORIGINS up to date with all frontend URLs.
+
+## Admin & Role-Based Access Conventions
+
+- Use Clerk's `publicMetadata` for role-based access:
+  - `isAdmin: true` for admin access.
+  - `isMaster: true` for master admin access.
+- Protect sensitive endpoints with `requireMasterAdmin` middleware.
+- Always check `isMaster` for master admin features.
+- Set these fields in the Clerk dashboard for each user as needed.
+- Ensure `.env` includes `CLERK_SECRET_KEY` for backend role checks.
+
+## ShippingItem Model (Updated January 2025)
+
+- The `ShippingItem` type is now global (not user-specific) and only includes:
+  - `_id`, `name`, `sku`, `length`, `width`, `height`, `weight` (all required)
+- Do **not** add `userId`, `notes`, `category`, `imageUrl`, or `quantity` fields to `ShippingItem`.
+- The `quantity` property is only used in the frontend UI for the "Selected Items" section and **should not** be stored in the database or backend models.
+- All backend service and route logic must use only these fields for shipping items.
+- Add or update comments in code to clarify the global, simplified model and the separation of UI-only fields like `quantity`.
+- **CRUD Operations**: All shipping item endpoints (GET, POST, PUT, DELETE) must follow RESTful conventions and use proper HTTP status codes.
+- **Data Validation**: Always validate request data before database operations.
+
+## Logging Conventions
+
+- Log all incoming API requests with method, path, and request body (for POST/PUT).
+- Log all outgoing responses, especially errors, with status, error message, and userId if available.
+- In middleware, log authentication and authorization events (success and failure).
+- In services and data providers, log all major actions and errors.
+- Use clear, contextual messages (e.g., [Users], [AI], [Auth], [Shipping], etc.) for easy filtering.
+- Never log sensitive data (e.g., passwords, tokens).
+- Use the backend console output to debug and monitor API activity.
+- All errors must be logged with as much context as possible (userId, request path, etc.).
+
+## Async Error Handling in Express
+
+- Always use the `wrapAsync` utility (see `src/utils/wrapAsync.ts`) to wrap all async route handlers.
+- This avoids repetitive try/catch blocks and ensures all errors are passed to Express's error middleware via `next(err)`.
+- Example usage:
+
+  ```js
+  router.get('/api/some-route', wrapAsync(async (req, res) => { ... }));
+  ```
+
+- This is my preferred pattern for all async routes, as it keeps the codebase clean and avoids subtle bugs where errors might otherwise be swallowed or not logged properly.
+- See the in-line comments in `wrapAsync.ts` for more details.
+
+## OpenAI Integration Conventions (as of December 2024)
+
+- **Always use function calling** for structured data extraction from OpenAI instead of JSON mode.
+- Define strict function schemas with required fields to ensure data quality.
+- Use descriptive function names and parameter descriptions for better AI understanding.
+- Implement comprehensive validation of function call responses before processing.
+- Handle function calling errors gracefully with appropriate fallbacks.
+- Never allow placeholder values like "N/A", "UNKNOWN", or "NONE" in structured data extraction.
+- Log all OpenAI requests and responses for debugging and monitoring.
+
+## Invoice Processing Conventions (as of December 2024)
+
+- All invoice processing must use OpenAI function calling for reliable structured data extraction:
+  1. Extract text from file (PDF/TXT).
+  2. Remove personal data (emails, phones, addresses) from text.
+  3. Use function calling to parse items with strict validation.
+  4. Check database first for existing SKUs before AI estimation.
+  5. Use database data when available, AI estimation only as fallback.
+  6. Automatically add new items to database for future efficiency.
+- **Database-First Approach:** Always check existing data before using AI estimation.
+- **SKU Validation:** Reject any items without valid, meaningful SKUs.
+- **Quantity Preservation:** Maintain original invoice quantities throughout the pipeline.
+- **Type Safety:** Use TypeScript interfaces for all data structures.
+- Use `processInvoiceFileModular` as the single source of truth for invoice processing.
+- Document all workflow changes in `codeupdates.md` and `README.md`.
+
+## Data Validation Conventions
+
+- Always validate OpenAI function call responses before using the data.
+- Implement filtering to remove invalid or placeholder data early in the pipeline.
+- Use TypeScript type guards for runtime validation of external data.
+- Log validation failures with specific details for debugging.
+- Provide meaningful fallbacks when validation fails.
+- Never pass unvalidated external data to database operations.
+
+## Frontend/Backend Integration Patterns (January 2025)
+
+- **API Endpoint Design**: Use RESTful conventions for all CRUD operations:
+  - `GET /api/resource` - List all items
+  - `POST /api/resource` - Create new item
+  - `PUT /api/resource/:id` - Update existing item
+  - `DELETE /api/resource/:id` - Delete item
+- **Response Formats**: Always return consistent JSON responses with proper HTTP status codes.
+- **Error Responses**: Include meaningful error messages and appropriate status codes (400, 401, 403, 404, 500).
+- **Request Validation**: Validate all request data before processing, especially for PUT/POST operations.
+- **Logging**: Log all CRUD operations with context (userId, item ID, operation type).
+
+## Optimistic UI Update Conventions (January 2025)
+
+- **Immediate Feedback**: Update UI state immediately upon user action, before backend confirmation.
+- **Background Sync**: Perform backend API calls asynchronously to persist changes.
+- **Callback Patterns**: Use standardized callback props for parent-child component communication:
+  - `onItemUpdate(updatedItem)` - For item modifications
+  - `onItemDelete(itemId)` - For item deletions
+  - `onItemCreate(newItem)` - For item creation
+- **Error Handling**: Always handle both success and failure cases for optimistic updates.
+- **State Consistency**: Ensure frontend state management keeps UI in sync with backend data.
+- **Revert Patterns**: Implement mechanisms to revert optimistic changes if backend operations fail.
+
+## SSR/Client Consistency (January 2025)
+
+- **Hydration Safety**: Use `isMounted` state pattern to avoid hydration mismatches:
+
+  ```typescript
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
+  if (!isMounted) return <div>Loading...</div>;
+  ```
+
+- **Deterministic IDs**: Use predictable ID generation (index-based) instead of time-based IDs for temporary items.
+- **Initial State**: Ensure server-side and client-side initial states are identical.
+- **Conditional Rendering**: Use isMounted checks for client-only functionality.

@@ -15,6 +15,8 @@ export class AIService {
 	 * @returns A Promise that resolves to a ReadableStream with the AI's response.
 	 */
 	async handleChat(chatBody: ChatBody): Promise<ReadableStream<Uint8Array>> {
+		console.log(`[AIService] handleChat called. chatBody:`, chatBody);
+
 		const { inputCode, model, apiKey } = chatBody;
 
 		let apiKeyFinal = apiKey;
@@ -23,11 +25,8 @@ export class AIService {
 		}
 
 		if (!apiKeyFinal) {
-			// logger.error( // Removed logger usage
-			// 	"OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable or provide an apiKey in the request."
-			// );
 			console.error(
-				"OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable or provide an apiKey in the request."
+				"[AIService] OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable or provide an apiKey in the request."
 			); // Replaced logger with console.error
 			throw new Error("OpenAI API key is not configured.");
 		}
@@ -63,7 +62,6 @@ export class AIService {
 			}
 			return response.body as ReadableStream<Uint8Array>; // Return the stream from the response
 		} catch (error) {
-			// logger.error("Error in AI service handling chat:", error); // Removed logger usage
 			console.error("Error in AI service handling chat:", error); // Replaced logger with console.error
 			// Ensure a generic error is thrown to avoid leaking sensitive details
 			throw new Error(
