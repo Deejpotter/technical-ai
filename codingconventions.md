@@ -93,3 +93,38 @@
 
 - This is my preferred pattern for all async routes, as it keeps the codebase clean and avoids subtle bugs where errors might otherwise be swallowed or not logged properly.
 - See the in-line comments in `wrapAsync.ts` for more details.
+
+## OpenAI Integration Conventions (as of December 2024)
+
+- **Always use function calling** for structured data extraction from OpenAI instead of JSON mode.
+- Define strict function schemas with required fields to ensure data quality.
+- Use descriptive function names and parameter descriptions for better AI understanding.
+- Implement comprehensive validation of function call responses before processing.
+- Handle function calling errors gracefully with appropriate fallbacks.
+- Never allow placeholder values like "N/A", "UNKNOWN", or "NONE" in structured data extraction.
+- Log all OpenAI requests and responses for debugging and monitoring.
+
+## Invoice Processing Conventions (as of December 2024)
+
+- All invoice processing must use OpenAI function calling for reliable structured data extraction:
+  1. Extract text from file (PDF/TXT).
+  2. Remove personal data (emails, phones, addresses) from text.
+  3. Use function calling to parse items with strict validation.
+  4. Check database first for existing SKUs before AI estimation.
+  5. Use database data when available, AI estimation only as fallback.
+  6. Automatically add new items to database for future efficiency.
+- **Database-First Approach:** Always check existing data before using AI estimation.
+- **SKU Validation:** Reject any items without valid, meaningful SKUs.
+- **Quantity Preservation:** Maintain original invoice quantities throughout the pipeline.
+- **Type Safety:** Use TypeScript interfaces for all data structures.
+- Use `processInvoiceFileModular` as the single source of truth for invoice processing.
+- Document all workflow changes in `codeupdates.md` and `README.md`.
+
+## Data Validation Conventions
+
+- Always validate OpenAI function call responses before using the data.
+- Implement filtering to remove invalid or placeholder data early in the pipeline.
+- Use TypeScript type guards for runtime validation of external data.
+- Log validation failures with specific details for debugging.
+- Provide meaningful fallbacks when validation fails.
+- Never pass unvalidated external data to database operations.

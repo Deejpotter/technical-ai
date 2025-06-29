@@ -11,13 +11,17 @@ import {
 	ExtractedInvoiceItem,
 	EstimatedItemWithDimensions,
 } from "../types/invoice"; // Adjusted path
+import { DataService } from "../data/DataService"; // Import DataService for DB operations
 import ShippingItem from "../types/ShippingItem"; // Corrected default import
 
 // Initialize OpenAI client
 // Ensure OPENAI_API_KEY is set in your environment variables
-const openai = new OpenAI({
-	apiKey: process.env.OPENAI_API_KEY,
-});
+// For tests, we'll handle missing API key gracefully
+const openai = process.env.OPENAI_API_KEY
+	? new OpenAI({
+			apiKey: process.env.OPENAI_API_KEY,
+	  })
+	: null;
 
 /**
  * Extracts text content from a provided file buffer.
@@ -74,8 +78,38 @@ export async function extractTextFromFile(
 }
 
 /**
- * Processes text content with OpenAI to extract item details.
- * This function now serves as the primary AI interaction point for invoice item extraction.
+ * Removes personal data (names, emails, phone numbers, addresses) from extracted invoice text.
+ * Uses regex patterns to scrub common PII. Extend as needed for more robust scrubbing.
+ * @param text The extracted invoice text.
+ * @returns The text with personal data removed or replaced.
+ */
+export function removePersonalData(text: string): string {
+	if (!text.trim()) return text;
+	let scrubbed = text;
+	// Remove emails
+	scrubbed = scrubbed.replace(
+		/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+		"[REDACTED_EMAIL]"
+	);
+	// Remove phone numbers (simple patterns)
+	scrubbed = scrubbed.replace(
+		/(\+?\d{1,3}[\s-]?)?(\(?\d{3}\)?[\s-]?)?\d{3}[\s-]?\d{4}/g,
+		"[REDACTED_PHONE]"
+	);
+	// Remove addresses (very basic, just street numbers and names)
+	scrubbed = scrubbed.replace(
+		/\d{1,5} [\w .,'-]+(Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Circle|Cir)\b/gi,
+		"[REDACTED_ADDRESS]"
+	);
+	// Remove names (if you have a list of known names, otherwise skip)
+	// Add more patterns as needed
+	return scrubbed;
+}
+
+/**
+ * Processes text content with OpenAI to extract item details using function calling.
+ * This function uses OpenAI function calling to ensure proper structured output for multiple items.
+ * Weight extraction is minimal since we prioritize DB weights over AI estimates.
  * @param {string} text - The invoice text to process.
  * @returns {Promise<ExtractedInvoiceItem[]>} A promise that resolves to an array of extracted items.
  * @throws {Error} If AI processing fails or returns unexpected data.
@@ -88,122 +122,105 @@ async function processTextWithAI(
 		return [];
 	}
 
-	const prompt = `
-Extract all line items from the following invoice text. For each item, provide:
-1. name: The full name or description of the item.
-2. sku: The SKU or product code, if available. If not available, use "N/A".
-3. quantity: The number of units for this item.
-4. weight: The weight of a single unit of the item in kilograms (kg). If weight is per multiple units, calculate for a single unit. If not available, estimate based on the item name or use 0.
+	// Define the function schema for extracting invoice items
+	const extractItemsFunction = {
+		name: "extract_invoice_items",
+		description: "Extract all line items from an invoice with their details",
+		parameters: {
+			type: "object",
+			properties: {
+				items: {
+					type: "array",
+					description: "Array of all items found in the invoice",
+					items: {
+						type: "object",
+						properties: {
+							name: {
+								type: "string",
+								description: "Full name or description of the item",
+							},
+							sku: {
+								type: "string",
+								description:
+									"SKU, product code, part number, or model number. If no explicit SKU is found, create a meaningful one based on the item name (e.g., 'BOLT-M6-20' for M6x20 bolt). NEVER use 'N/A', 'UNKNOWN', 'NONE', or any placeholder text. Every item must have a valid, specific SKU.",
+							},
+							quantity: {
+								type: "number",
+								description: "Number of units of this item from the invoice",
+							},
+							weight: {
+								type: "number",
+								description:
+									"Estimated weight of a single unit in kg. Use 0 if unknown - we'll get actual weight from database",
+							},
+						},
+						required: ["name", "sku", "quantity", "weight"],
+					},
+				},
+			},
+			required: ["items"],
+		},
+	};
 
-Format the output as a JSON array of objects, where each object represents an item.
-The root of the response should be the JSON array itself. Example:
-[
-  { "name": "Item A", "sku": "SKU123", "quantity": 2, "weight": 0.5 },
-  { "name": "Item B", "sku": "N/A", "quantity": 10, "weight": 0.02 }
-]
+	const prompt = `Extract ALL line items from this invoice. Each item should include:
+- Complete item name/description as shown on invoice
+- SKU/product code/part number. If no explicit SKU exists, create a meaningful one based on the item description (e.g., "BOLT-M6-20" for M6x20 bolt, "RAIL-2040-500" for 2040 extrusion 500mm length). ABSOLUTELY NEVER use "N/A", "UNKNOWN", "NONE", or any placeholder text as SKU values - every item must have a real, specific SKU.
+- Exact quantity from the invoice
+- Estimated weight per unit in kg (or 0 if unknown - we'll get actual weight from database)
+
+Make sure to extract EVERY item shown in the invoice, not just the first one.
+Focus on actual physical products that need to be shipped - ignore service charges, shipping fees, taxes, etc.
+Ensure every extracted item has a valid, meaningful SKU - no placeholders allowed.
 
 Invoice Text:
 ---
 ${text}
----
-JSON Output:
-`;
+---`;
 
 	try {
-		console.log("Sending text to OpenAI for item extraction...");
+		console.log(
+			"Sending text to OpenAI for item extraction using function calling..."
+		);
+		if (!openai) {
+			throw new Error(
+				"OpenAI client not initialized. Please ensure OPENAI_API_KEY is set."
+			);
+		}
 		const response = await openai.chat.completions.create({
-			model: process.env.OPENAI_CHAT_MODEL || "gpt-3.5-turbo-1106", // Specify a model known to support JSON mode
+			model: process.env.OPENAI_CHAT_MODEL || "gpt-3.5-turbo-1106",
 			messages: [{ role: "user", content: prompt }],
 			temperature: 0.1, // Lower temperature for more deterministic output
-			response_format: { type: "json_object" }, // Request JSON output
+			functions: [extractItemsFunction],
+			function_call: { name: "extract_invoice_items" },
 		});
 
-		const messageContent = response.choices[0]?.message?.content;
-		if (!messageContent) {
-			throw new Error("OpenAI response content is empty.");
+		const functionCall = response.choices[0]?.message?.function_call;
+		if (!functionCall || functionCall.name !== "extract_invoice_items") {
+			throw new Error("OpenAI did not return the expected function call.");
 		}
 
-		console.log("Raw OpenAI response:", messageContent);
+		const functionArgs = functionCall.arguments;
+		if (!functionArgs) {
+			throw new Error("OpenAI function call has no arguments.");
+		}
+
+		console.log("Raw OpenAI function call response:", functionArgs);
 
 		let extractedItems: ExtractedInvoiceItem[] = [];
 		try {
-			const parsedJson = JSON.parse(messageContent);
-			// Expecting the root to be an array due to response_format and prompt.
-			// However, AI can sometimes still wrap it, so we check common keys.
-			if (Array.isArray(parsedJson)) {
-				extractedItems = parsedJson;
-			} else if (parsedJson.items && Array.isArray(parsedJson.items)) {
-				extractedItems = parsedJson.items;
-			} else if (parsedJson.data && Array.isArray(parsedJson.data)) {
-				extractedItems = parsedJson.data;
+			const parsedArgs = JSON.parse(functionArgs);
+			if (parsedArgs.items && Array.isArray(parsedArgs.items)) {
+				extractedItems = parsedArgs.items;
 			} else {
-				// If it's an object but not the expected structure, try to find an array within it
-				const arrayKey = Object.keys(parsedJson).find((key) =>
-					Array.isArray(parsedJson[key])
-				);
-				if (arrayKey) {
-					extractedItems = parsedJson[arrayKey];
-					console.log(`Found items under key: ${arrayKey}`);
-				} else if (
-					typeof parsedJson === "object" &&
-					parsedJson !== null &&
-					parsedJson.name &&
-					parsedJson.quantity &&
-					parsedJson.weight !== undefined
-				) {
-					// Handle case where AI might return a single object instead of an array of one
-					console.log(
-						"Attempting to treat single object response as a single item array."
-					);
-					extractedItems = [parsedJson as ExtractedInvoiceItem];
-				} else {
-					throw new Error(
-						"OpenAI response was valid JSON but not in the expected array format or a known wrapped structure."
-					);
-				}
+				throw new Error("Function call response missing 'items' array");
 			}
 		} catch (jsonError) {
-			console.error("Failed to parse OpenAI JSON response:", jsonError);
-			console.error("Problematic JSON string:", messageContent);
-			// Fallback: Try to extract JSON from a potentially markdown-formatted response
-			// This is less likely if json_object mode works as expected, but good for resilience
-			const jsonRegex = /```json\\n([\\s\\S]*?)\\n```/;
-			const match = messageContent.match(jsonRegex);
-			if (match && match[1]) {
-				console.log("Attempting to parse JSON from markdown block...");
-				try {
-					const parsedJsonFromMarkdown = JSON.parse(match[1]);
-					if (Array.isArray(parsedJsonFromMarkdown)) {
-						extractedItems = parsedJsonFromMarkdown;
-					} else if (
-						parsedJsonFromMarkdown.items &&
-						Array.isArray(parsedJsonFromMarkdown.items)
-					) {
-						extractedItems = parsedJsonFromMarkdown.items;
-					} else if (
-						parsedJsonFromMarkdown.data &&
-						Array.isArray(parsedJsonFromMarkdown.data)
-					) {
-						extractedItems = parsedJsonFromMarkdown.data;
-					} else {
-						throw new Error(
-							"JSON from markdown block was not in expected array format."
-						);
-					}
-				} catch (markdownJsonError) {
-					console.error(
-						"Failed to parse JSON from markdown block:",
-						markdownJsonError
-					);
-					throw new Error(
-						"Failed to parse OpenAI JSON response, even after trying markdown extraction."
-					);
-				}
-			} else {
-				throw new Error(
-					"OpenAI response was not valid JSON and no markdown block found."
-				);
-			}
+			console.error(
+				"Failed to parse OpenAI function call arguments:",
+				jsonError
+			);
+			console.error("Problematic JSON string:", functionArgs);
+			throw new Error(`Failed to parse function call response: ${jsonError}`);
 		}
 
 		// Validate structure of extracted items
@@ -213,7 +230,7 @@ JSON Output:
 				(item) =>
 					item && // ensure item is not null/undefined
 					typeof item.name === "string" &&
-					typeof item.sku === "string" && // SKU can be N/A, but should be a string
+					typeof item.sku === "string" &&
 					typeof item.quantity === "number" &&
 					typeof item.weight === "number"
 			)
@@ -224,6 +241,35 @@ JSON Output:
 			);
 			throw new Error(
 				"OpenAI response format is invalid after parsing. Check logs."
+			);
+		}
+
+		// Additional validation: reject items with invalid SKUs
+		const invalidSkuItems = extractedItems.filter(
+			(item) =>
+				!item.sku ||
+				item.sku.trim() === "" ||
+				item.sku.toUpperCase().includes("N/A") ||
+				item.sku.toUpperCase().includes("UNKNOWN") ||
+				item.sku.toUpperCase().includes("NONE")
+		);
+
+		if (invalidSkuItems.length > 0) {
+			console.warn(
+				"Found items with invalid SKUs:",
+				invalidSkuItems.map((item) => ({ name: item.name, sku: item.sku }))
+			);
+			// Filter out items with invalid SKUs rather than failing completely
+			extractedItems = extractedItems.filter(
+				(item) =>
+					item.sku &&
+					item.sku.trim() !== "" &&
+					!item.sku.toUpperCase().includes("N/A") &&
+					!item.sku.toUpperCase().includes("UNKNOWN") &&
+					!item.sku.toUpperCase().includes("NONE")
+			);
+			console.log(
+				`Filtered out ${invalidSkuItems.length} items with invalid SKUs. ${extractedItems.length} valid items remaining.`
 			);
 		}
 		console.log(
@@ -250,7 +296,8 @@ export async function extractInvoiceItemsFromText(
 }
 
 /**
- * Estimates dimensions for hardware items using OpenAI.
+ * Estimates dimensions for hardware items using OpenAI function calling.
+ * This function uses OpenAI function calling to ensure proper structured output for dimension estimation.
  * @param {ExtractedInvoiceItem[]} items - Array of extracted items to estimate dimensions for.
  * @returns {Promise<EstimatedItemWithDimensions[]>} Array of items with estimated dimensions.
  */
@@ -262,144 +309,159 @@ export async function estimateItemDimensionsAI(
 		return [];
 	}
 
+	// Define the function schema for estimating dimensions
+	const estimateDimensionsFunction = {
+		name: "estimate_item_dimensions",
+		description: "Estimate physical dimensions for hardware items",
+		parameters: {
+			type: "object",
+			properties: {
+				items: {
+					type: "array",
+					description: "Array of items with estimated dimensions",
+					items: {
+						type: "object",
+						properties: {
+							name: {
+								type: "string",
+								description: "Original item name",
+							},
+							sku: {
+								type: "string",
+								description: "Original item SKU",
+							},
+							length: {
+								type: "number",
+								description: "Estimated length in millimeters (mm)",
+							},
+							width: {
+								type: "number",
+								description: "Estimated width in millimeters (mm)",
+							},
+							height: {
+								type: "number",
+								description: "Estimated height in millimeters (mm)",
+							},
+						},
+						required: ["name", "sku", "length", "width", "height"],
+					},
+				},
+			},
+			required: ["items"],
+		},
+	};
+
 	const itemsForPrompt = items.map((item) => ({
 		name: item.name,
 		sku: item.sku,
 	}));
 
-	const prompt = `
-For each of the following hardware items, estimate its physical dimensions (length, width, height) for a single unit in millimeters (mm).
-If an item is not a physical product or dimensions are not applicable, use 0 for length, width, and height.
+	const prompt = `Estimate physical dimensions for each hardware item. For a single unit in millimeters (mm).
+If an item is not a physical product or dimensions are not applicable, use 0 for all dimensions.
 Consider common sizes for items like screws, bolts, extrusions, electronics, etc.
 
-Items:
----
+Items to estimate:
 ${JSON.stringify(itemsForPrompt, null, 2)}
----
 
-Return the output as a JSON array, where each object matches the input items but includes:
-- length: estimated length in mm
-- width: estimated width in mm
-- height: estimated height in mm
-The root of the response should be the JSON array itself.
-
-Example for a single item input:
-Input: [{ "name": "M5x10mm Socket Head Cap Screw", "sku": "SCR-M5-10" }]
-Output: [{ "name": "M5x10mm Socket Head Cap Screw", "sku": "SCR-M5-10", "length": 10, "width": 8, "height": 8 }]
-(Note: head diameter for M5 is ~8.5mm, length is 10mm. Width/Height can be approx head diameter for small screws)
-
-JSON Output:
-`;
+Return dimensions for ALL items in the same order provided.`;
 
 	try {
 		console.log(
-			`Sending ${items.length} items to OpenAI for dimension estimation...`
+			`Sending ${items.length} items to OpenAI for dimension estimation using function calling...`
 		);
+		if (!openai) {
+			throw new Error(
+				"OpenAI client not initialized. Please ensure OPENAI_API_KEY is set."
+			);
+		}
 		const response = await openai.chat.completions.create({
-			model: process.env.OPENAI_CHAT_MODEL || "gpt-3.5-turbo-1106", // Specify a model known to support JSON mode
+			model: process.env.OPENAI_CHAT_MODEL || "gpt-3.5-turbo-1106",
 			messages: [{ role: "user", content: prompt }],
-			temperature: 0.2,
-			response_format: { type: "json_object" },
+			temperature: 0.1, // Lower temperature for more deterministic output
+			functions: [estimateDimensionsFunction],
+			function_call: { name: "estimate_item_dimensions" },
 		});
 
-		const messageContent = response.choices[0]?.message?.content;
-		if (!messageContent) {
+		const functionCall = response.choices[0]?.message?.function_call;
+		if (!functionCall || functionCall.name !== "estimate_item_dimensions") {
 			throw new Error(
-				"OpenAI response content is empty for dimension estimation."
+				"OpenAI did not return the expected function call for dimension estimation."
 			);
 		}
 
-		console.log("Raw OpenAI dimension estimation response:", messageContent);
+		const functionArgs = functionCall.arguments;
+		if (!functionArgs) {
+			throw new Error(
+				"OpenAI function call has no arguments for dimension estimation."
+			);
+		}
 
-		let estimatedItemsWithDimensionsOutput: any[] = [];
+		console.log("Raw OpenAI dimension function call response:", functionArgs);
+
+		let estimatedDimensions: any[] = [];
 		try {
-			const parsedJson = JSON.parse(messageContent);
-			if (Array.isArray(parsedJson)) {
-				estimatedItemsWithDimensionsOutput = parsedJson;
-			} else if (parsedJson.items && Array.isArray(parsedJson.items)) {
-				estimatedItemsWithDimensionsOutput = parsedJson.items;
-			} else if (parsedJson.data && Array.isArray(parsedJson.data)) {
-				estimatedItemsWithDimensionsOutput = parsedJson.data;
+			const parsedArgs = JSON.parse(functionArgs);
+			if (parsedArgs.items && Array.isArray(parsedArgs.items)) {
+				estimatedDimensions = parsedArgs.items;
 			} else {
-				const arrayKey = Object.keys(parsedJson).find((key) =>
-					Array.isArray(parsedJson[key])
+				throw new Error(
+					"Function call response missing 'items' array for dimensions"
 				);
-				if (arrayKey) {
-					estimatedItemsWithDimensionsOutput = parsedJson[arrayKey];
-				} else {
-					throw new Error(
-						"OpenAI dimension response was valid JSON but not in the expected array format."
-					);
-				}
 			}
 		} catch (jsonError) {
 			console.error(
-				"Failed to parse OpenAI JSON response for dimensions:",
+				"Failed to parse OpenAI dimension function call arguments:",
 				jsonError
 			);
-			const jsonRegex = /```json\\n([\\s\\S]*?)\\n```/;
-			const match = messageContent.match(jsonRegex);
-			if (match && match[1]) {
-				console.log(
-					"Attempting to parse dimension JSON from markdown block..."
-				);
-				try {
-					const parsedJsonFromMarkdown = JSON.parse(match[1]);
-					if (Array.isArray(parsedJsonFromMarkdown)) {
-						estimatedItemsWithDimensionsOutput = parsedJsonFromMarkdown;
-					} else if (
-						parsedJsonFromMarkdown.items &&
-						Array.isArray(parsedJsonFromMarkdown.items)
-					) {
-						estimatedItemsWithDimensionsOutput = parsedJsonFromMarkdown.items;
-					} else {
-						throw new Error(
-							"Dimension JSON from markdown block was not in expected array format."
-						);
-					}
-				} catch (markdownJsonError) {
-					console.error(
-						"Failed to parse dimension JSON from markdown block:",
-						markdownJsonError
-					);
-					throw new Error(
-						"Failed to parse OpenAI dimension JSON response, even after trying markdown extraction."
-					);
-				}
-			} else {
-				throw new Error(
-					"OpenAI dimension response was not valid JSON and no markdown block found."
-				);
-			}
+			console.error("Problematic JSON string:", functionArgs);
+			throw new Error(
+				`Failed to parse dimension function call response: ${jsonError}`
+			);
 		}
 
-		if (estimatedItemsWithDimensionsOutput.length !== items.length) {
-			console.warn(
-				`Mismatch in item count for dimension estimation. Input: ${items.length}, Output: ${estimatedItemsWithDimensionsOutput.length}`
+		// Validate structure of estimated dimensions
+		if (
+			!Array.isArray(estimatedDimensions) ||
+			!estimatedDimensions.every(
+				(item) =>
+					item && // ensure item is not null/undefined
+					typeof item.name === "string" &&
+					typeof item.sku === "string" &&
+					typeof item.length === "number" &&
+					typeof item.width === "number" &&
+					typeof item.height === "number"
+			)
+		) {
+			console.error(
+				"OpenAI dimension response format is invalid. Expected an array of dimension objects.",
+				estimatedDimensions
 			);
-			// Attempt to reconcile or handle this discrepancy if necessary.
-			// For now, we proceed, but this could lead to incorrect merging.
+			throw new Error(
+				"OpenAI dimension response format is invalid after parsing. Check logs."
+			);
+		}
+
+		if (estimatedDimensions.length !== items.length) {
+			console.warn(
+				`Mismatch in item count for dimension estimation. Input: ${items.length}, Output: ${estimatedDimensions.length}`
+			);
 		}
 
 		// Merge original items with estimated dimensions
 		const result: EstimatedItemWithDimensions[] = items.map(
 			(originalItem, index) => {
-				// Find the corresponding estimated item.
-				// Prefer matching by name and SKU, fall back to index if counts match and names/SKUs don't.
-				let estimated = estimatedItemsWithDimensionsOutput.find(
+				// Find the corresponding estimated item by name and SKU match, fall back to index
+				let estimated = estimatedDimensions.find(
 					(est) =>
 						est.name === originalItem.name && est.sku === originalItem.sku
 				);
 
 				// If no match by name/SKU and counts are the same, try by index (less reliable)
-				if (
-					!estimated &&
-					estimatedItemsWithDimensionsOutput.length === items.length
-				) {
+				if (!estimated && estimatedDimensions.length === items.length) {
 					console.warn(
 						`Dimension estimation for '${originalItem.name}' (SKU: ${originalItem.sku}) not found by name/SKU match. Trying by index as counts match.`
 					);
-					estimated = estimatedItemsWithDimensionsOutput[index];
+					estimated = estimatedDimensions[index];
 				}
 
 				if (estimated) {
@@ -424,11 +486,14 @@ JSON Output:
 		console.log(
 			`Successfully estimated dimensions for ${
 				result.filter((r) => r.length > 0 || r.width > 0 || r.height > 0).length
-			} items.`
+			} items using function calling.`
 		);
 		return result;
 	} catch (error: any) {
-		console.error("Error estimating item dimensions with AI:", error);
+		console.error(
+			"Error estimating item dimensions with AI function calling:",
+			error
+		);
 		throw new Error(
 			`Failed to estimate item dimensions. Error: ${error.message}`
 		);
@@ -452,220 +517,163 @@ function logSuspiciousWeight(
 	}
 }
 
-// Placeholder for database interaction
-const db = {
-	shippingItem: {
-		findUnique: async (args: {
-			where: { sku: string };
-		}): Promise<ShippingItem | null> => {
-			console.log(`DB_SIM: Checking for SKU: ${args.where.sku}`);
-			// Simulate finding an item for type correctness and testing
-			if (args.where.sku === "EXISTING_SKU_EXAMPLE") {
-				return {
-					_id: "mongoId123",
-					name: "Example Existing Item",
-					sku: args.where.sku,
-					length: 100,
-					width: 50,
-					height: 20,
-					weight: 500,
-					createdAt: new Date(),
-					updatedAt: new Date(),
-				};
-			}
-			// Simulate not finding an item for other SKUs
-			return null;
-		},
-		create: async (args: {
-			data: Omit<ShippingItem, "_id" | "createdAt" | "updatedAt">;
-		}): Promise<ShippingItem> => {
-			console.log(
-				`DB_SIM: Creating item: ${args.data.name} (SKU: ${args.data.sku})`
-			);
-			const newItem: ShippingItem = {
-				_id: `SIM_MONGO_ID_${Date.now()}_${Math.random()
-					.toString(36)
-					.substring(2, 9)}`,
-				...args.data,
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			};
-			return newItem;
-		},
-		update: async (args: {
-			where: { sku: string };
-			data: Partial<Omit<ShippingItem, "_id" | "createdAt" | "updatedAt">>;
-		}): Promise<ShippingItem> => {
-			console.log(
-				`DB_SIM: Updating item: ${args.where.sku} with data: ${JSON.stringify(
-					args.data
-				)}`
-			);
-			// Simulate finding and updating. For now, just return a structure assuming it was found.
-			// In a real scenario, you\'d fetch the existing item first.
-			const updatedItem: ShippingItem = {
-				_id: "EXISTING_MONGO_ID", // Placeholder for actual ID that would be found
-				name: args.data.name || "Updated Name",
-				sku: args.where.sku,
-				length: args.data.length || 0,
-				width: args.data.width || 0,
-				height: args.data.height || 0,
-				weight: args.data.weight || 0, // weight in grams
-				createdAt: new Date(Date.now() - 100000), // Older date
-				updatedAt: new Date(),
-			};
-			return updatedItem;
-		},
-	},
-};
-
 /**
- * Retrieves existing shipping items or creates new ones based on extracted invoice data.
- * It now includes dimension estimation and passes userId for item creation/update.
- * @param {EstimatedItemWithDimensions[]} itemsWithDimensions - Items extracted and processed by AI, including dimensions.
- * @returns {Promise<ShippingItem[]>} Array of existing or newly created/updated shipping items.
- *          The quantity in the returned ShippingItem reflects the quantity from THIS invoice.
+ * Main modular workflow for processing an invoice file with proper quantity and weight handling.
+ * Steps:
+ * 1. Extract text from file
+ * 2. Remove personal data
+ * 3. Parse items from text using function calling
+ * 4. For each item, check DB for SKU; if found, use DB data with invoice quantity
+ * 5. If SKU not found, estimate with AI and optionally add to DB
+ * Returns a type-safe, clear response for the frontend that preserves quantities.
  */
-export async function getOrCreateShippingItemsFromInvoice(
-	itemsWithDimensions: EstimatedItemWithDimensions[]
-	// userId: string // Removed: Shipping items are now global
-): Promise<ShippingItem[]> {
-	if (!itemsWithDimensions || itemsWithDimensions.length === 0) {
-		return [];
-	}
-
-	const shippingItemsResult: ShippingItem[] = [];
-
-	for (const item of itemsWithDimensions) {
-		logSuspiciousWeight(item, `AI Estimation (Invoice: ${item.name})`);
-
-		// Data to be used for creating or updating a ShippingItem in the DB
-		// Note: item.weight is from AI in KG, ShippingItem.weight is in grams.
-		// item.quantity is from the invoice.
-		const itemDataForDb: Omit<ShippingItem, "_id" | "createdAt" | "updatedAt"> =
-			{
-				name: item.name,
-				sku:
-					item.sku ||
-					`TEMP_SKU_${Date.now()}_${Math.random()
-						.toString(36)
-						.substring(2, 7)}`,
-				length: item.length, // mm
-				width: item.width, // mm
-				height: item.height, // mm
-				weight: item.weight * 1000, // Convert kg to grams
-				// userId: userId, // Removed: Shipping items are now global
-				// category: "Auto-Processed", // Default category
-				// notes: `Auto-generated from invoice processing on ${new Date().toISOString()}. Original quantity: ${
-				// 	item.quantity
-				// }.`,
-				// imageUrl can be added if a system for it exists
-			};
-
-		let finalShippingItem: ShippingItem;
-		// Removed userId from findUnique query
-		const existingItem = await db.shippingItem.findUnique({
-			where: { sku: itemDataForDb.sku },
-		});
-
-		if (existingItem) {
-			console.log(
-				`Found existing item with SKU: ${itemDataForDb.sku}. Simulating update.`
-			);
-			// If item exists, update it with new details if necessary, but retain its _id.
-			// The transactional quantity from the invoice is what we want to reflect in the returned item.
-			finalShippingItem = await db.shippingItem.update({
-				where: { sku: itemDataForDb.sku }, // Removed userId from where clause
-				data: {
-					name: itemDataForDb.name, // Update name if changed
-					length: itemDataForDb.length, // Update dimensions
-					width: itemDataForDb.width,
-					height: itemDataForDb.height,
-					weight: itemDataForDb.weight, // Update weight
-					// DO NOT update existingItem.quantity (master stock) here directly.
-					// The quantity in itemDataForDb is the transactional quantity.
-				},
-			});
-		} else {
-			console.log(
-				`No existing item with SKU: ${itemDataForDb.sku}. Simulating creation.`
-			);
-			// Create a new ShippingItem with all details, including the transactional quantity.
-			finalShippingItem = await db.shippingItem.create({ data: itemDataForDb });
-		}
-
-		shippingItemsResult.push(finalShippingItem);
-	}
-	console.log(
-		`Processed ${shippingItemsResult.length} items into ShippingItem format (simulated DB).`
-	);
-	return shippingItemsResult;
-}
-
-/**
- * Main service function to process an invoice file (PDF or TXT).
- * It extracts text, then uses AI to get item details and estimate dimensions,
- * and finally attempts to get or create these items in the (simulated) database,
- * associating them with the provided userId.
- *
- * @param fileBuffer Buffer of the uploaded file.
- * @param fileType MIME type of the file.
- * @param fileName Original name of the file.
- * @param userId The ID of the user uploading the invoice, used for associating/creating items.
- * @returns {Promise<EstimatedItemWithDimensions[]>} A promise that resolves to an array of items
- *          with name, sku, quantity (from invoice), weight (kg), and estimated dimensions (mm).
- *          These are the items as extracted and estimated, *before* DB interaction transforms them into full ShippingItem structure.
- */
-export async function processInvoiceFileAndExtractItems(
+export async function processInvoiceFileModular(
 	fileBuffer: Buffer,
 	fileType: string,
 	fileName: string
-	// userId: string // Removed: No longer needed as items are global
 ): Promise<EstimatedItemWithDimensions[]> {
-	console.log(`Starting processing for file: ${fileName}, type: ${fileType}`);
+	console.log(
+		`[Modular] Starting modular invoice processing for ${fileName}...`
+	);
 
-	// Step 1: Extract text from the file
+	// Step 1: Extract text from file
 	const extractedText = await extractTextFromFile(
 		fileBuffer,
 		fileType,
 		fileName
 	);
 	if (!extractedText.trim()) {
-		console.warn(
-			`No text extracted from ${fileName}, skipping further processing.`
-		);
+		console.warn(`[Modular] No text extracted from ${fileName}, skipping.`);
 		return [];
 	}
-	console.log(
-		`Successfully extracted text from ${fileName}. Length: ${extractedText.length}`
-	);
 
-	// Step 2: Extract structured item data (name, sku, quantity, weight) using AI
-	const extractedItems = await extractInvoiceItemsFromText(extractedText);
+	// Step 2: Remove personal data
+	const scrubbedText = removePersonalData(extractedText);
+	console.log(`[Modular] Personal data removed from extracted text.`);
+
+	// Step 3: Parse items from text using function calling
+	const extractedItems = await extractInvoiceItemsFromText(scrubbedText);
 	if (!extractedItems || extractedItems.length === 0) {
 		console.warn(
-			`No items extracted by AI from ${fileName}. Returning empty array.`
+			`[Modular] No items extracted by AI from ${fileName}. Returning empty array.`
 		);
 		return [];
 	}
+
 	console.log(
-		`Successfully extracted ${extractedItems.length} items using AI from ${fileName}.`
+		`[Modular] Extracted ${extractedItems.length} items from AI function calling.`
 	);
 
-	// Step 3: Estimate dimensions for the extracted items using AI
-	const itemsWithDimensions = await estimateItemDimensionsAI(extractedItems);
-	console.log(
-		`Successfully estimated dimensions for ${itemsWithDimensions.length} items from ${fileName}.`
+	// Step 4: Process each item - check DB first, then AI estimation if needed
+	const finalItems: EstimatedItemWithDimensions[] = [];
+
+	// Get all available items from DB for efficient lookup
+	const dbResponse = await DataService.shippingItems.getAvailable();
+	const dbItems = dbResponse.success && dbResponse.data ? dbResponse.data : [];
+	const dbItemsBySku = new Map(
+		dbItems.map((item) => [item.sku.trim().toUpperCase(), item])
 	);
 
-	// Step 4: Get or create ShippingItem records (now global, no userId)
-	// The result of this step is not directly returned by this function as per its signature,
-	// but it ensures items are in the DB. The function returns EstimatedItemWithDimensions.
-	// If the goal was to return ShippingItem[], the signature and logic would change.
-	await getOrCreateShippingItemsFromInvoice(itemsWithDimensions);
 	console.log(
-		`Finished getOrCreateShippingItemsFromInvoice for ${itemsWithDimensions.length} items from ${fileName}.`
+		`[Modular] Loaded ${dbItems.length} items from database for lookup.`
 	);
 
-	return itemsWithDimensions;
+	for (const item of extractedItems) {
+		const normalizedSku = item.sku.trim().toUpperCase();
+		console.log(
+			`[Modular] Processing item: ${item.name} (SKU: ${normalizedSku}, Qty: ${item.quantity})`
+		);
+
+		const dbItem = dbItemsBySku.get(normalizedSku);
+
+		if (dbItem) {
+			console.log(
+				`[Modular] Found SKU in DB: ${normalizedSku}, using DB weight: ${dbItem.weight}g`
+			);
+			// Use DB data but preserve invoice quantity
+			finalItems.push({
+				...item, // Preserves name, sku, quantity from invoice
+				length: dbItem.length,
+				width: dbItem.width,
+				height: dbItem.height,
+				// Use DB weight (convert grams to kg for consistency with AI estimates)
+				weight: dbItem.weight / 1000,
+			});
+		} else {
+			console.log(
+				`[Modular] SKU not found in DB, estimating with AI: ${normalizedSku}`
+			);
+			try {
+				const estimatedItems = await estimateItemDimensionsAI([item]);
+				if (estimatedItems && estimatedItems.length > 0) {
+					const estimated = estimatedItems[0];
+					console.log(`[Modular] AI estimation successful for: ${item.name}`);
+
+					// Optionally add new item to DB for future use
+					// This preserves the estimated data and makes subsequent processing faster
+					try {
+						console.log(
+							`[Modular] Adding new item to DB: ${estimated.name} (SKU: ${normalizedSku})`
+						);
+						await DataService.shippingItems.add({
+							name: estimated.name,
+							sku: normalizedSku,
+							length: estimated.length,
+							width: estimated.width,
+							height: estimated.height,
+							weight: estimated.weight * 1000, // Convert kg to grams for DB storage
+						});
+						console.log(
+							`[Modular] Successfully added ${estimated.name} to database.`
+						);
+					} catch (dbError) {
+						console.warn(
+							`[Modular] Failed to add item to DB (${estimated.name}), continuing with estimation:`,
+							dbError
+						);
+						// Continue processing even if DB addition fails
+					}
+
+					finalItems.push(estimated);
+				} else {
+					console.warn(
+						`[Modular] AI estimation returned empty for: ${item.name}, using default dimensions`
+					);
+					// Fallback: Use default dimensions if AI estimation fails
+					finalItems.push({
+						...item,
+						length: 0,
+						width: 0,
+						height: 0,
+					});
+				}
+			} catch (error) {
+				console.error(
+					`[Modular] AI estimation failed for: ${item.name}`,
+					error
+				);
+				// Fallback: Use default dimensions if AI estimation throws an error
+				finalItems.push({
+					...item,
+					length: 0,
+					width: 0,
+					height: 0,
+				});
+			}
+		}
+	}
+
+	console.log(
+		`[Modular] Finished modular invoice processing for ${fileName}. Processed ${finalItems.length} items.`
+	);
+	console.log(
+		`[Modular] Items with quantities:`,
+		finalItems.map((item) => ({
+			name: item.name,
+			sku: item.sku,
+			quantity: item.quantity,
+		}))
+	);
+
+	return finalItems;
 }

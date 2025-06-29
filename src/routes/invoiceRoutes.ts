@@ -2,7 +2,7 @@ import express, { Router } from "express";
 import multer from "multer";
 import { AuthenticatedRequest } from "../types/express";
 import { requireAuth } from "../middleware/clerkAuth"; // Assuming clerkAuth.ts is in middleware
-import { processInvoiceFileAndExtractItems } from "../services/invoiceService";
+import { processInvoiceFileModular } from "../services/invoiceService";
 
 const router = Router();
 
@@ -60,7 +60,7 @@ router.post(
 			console.log(
 				`Processing PDF for user: ${authReq.auth.userId}, filename: ${fileName}`
 			);
-			const extractedItems = await processInvoiceFileAndExtractItems(
+			const extractedItems = await processInvoiceFileModular(
 				fileBuffer,
 				fileType,
 				fileName

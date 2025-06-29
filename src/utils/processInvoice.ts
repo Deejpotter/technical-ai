@@ -339,9 +339,14 @@ async function getItemDimensions(
 		}
 
 		// If the item does not exist in the DB, estimate dimensions and add it
-		const [estimatedItemDetails] = await estimateItemDimensions([invoiceItem]);
+		const estimatedItems = await estimateItemDimensions([invoiceItem]);
+		const estimatedItemDetails =
+			estimatedItems && estimatedItems.length > 0 ? estimatedItems[0] : null;
 
 		if (!estimatedItemDetails) {
+			console.warn(
+				`[ProcessInvoice] AI estimation failed or returned empty for item: ${invoiceItem.name} (SKU: ${invoiceItem.sku}). Skipping.`
+			);
 			continue; // Skip if estimation fails
 		}
 

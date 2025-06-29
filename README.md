@@ -150,3 +150,84 @@ Ensure the following environment variables are set in your `.env` file:
 ---
 
 *This project is designed to be a comprehensive resource for AI technical needs, ensuring consistency, quality, and efficiency across various AI initiatives.*
+
+## Invoice Processing Workflow (as of December 2024)
+
+The backend processes invoice files (PDF or TXT) using a modern OpenAI function calling approach:
+
+1. **Text Extraction:** Extracts text from uploaded files (PDF/TXT).
+2. **Personal Data Scrubbing:** Removes PII (emails, phone numbers, addresses) from extracted text.
+3. **AI Function Calling:** Uses OpenAI function calling to extract structured item data with strict validation:
+   * Item name and description
+   * SKU/product code (never allows "N/A" or placeholder values)
+   * Quantity from invoice
+   * Estimated weight (fallback only)
+4. **Database Integration:** For each extracted item:
+   * Checks database for existing SKU first
+   * Uses database data (dimensions, weight) when available
+   * Falls back to AI dimension estimation only when needed
+   * Automatically adds new items to database for future efficiency
+5. **Type Safety:** All steps use TypeScript with comprehensive error handling.
+
+**Key Features:**
+
+* Function calling ensures structured, reliable data extraction
+* SKU validation prevents placeholder values from entering the system
+* Database-first approach minimizes AI usage and improves accuracy
+* Preserves original invoice quantities throughout the pipeline
+* Automatic database population for improved future performance
+
+See `src/services/invoiceService.ts` for implementation details.
+
+## OpenAI Function Calling Migration (December 2024)
+
+The invoice processing system has been completely migrated from JSON mode to OpenAI function calling for improved reliability and structured data extraction.
+
+### What Changed
+
+**Before:** Used OpenAI JSON mode with prompt-based instructions for data formatting
+**After:** Uses OpenAI function calling with strict schemas for guaranteed data structure
+
+### Benefits
+
+* **Reliability:** Function calling provides guaranteed structured output format
+* **Validation:** Built-in validation of required fields and data types
+* **Error Reduction:** Eliminates JSON parsing errors and malformed responses
+* **Performance:** More efficient processing with fewer retry cycles
+* **Data Quality:** Strict SKU validation prevents placeholder values
+
+### Implementation
+
+    // Function schema defines exact structure
+    const extractItemsFunction = {
+      name: "extract_invoice_items",
+      description: "Extract all line items from an invoice with their details",
+      parameters: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                sku: { type: "string" }, 
+                quantity: { type: "number" },
+                weight: { type: "number" }
+              },
+              required: ["name", "sku", "quantity", "weight"]
+            }
+          }
+        }
+      }
+    };
+
+### Legacy Code Removal
+
+All deprecated functions have been removed to prevent confusion:
+
+* ❌ `getOrCreateShippingItemsFromInvoice` (removed)
+* ❌ `processInvoiceFileAndExtractItems` (removed)
+* ✅ `processInvoiceFileModular` (current implementation)
+
+The system now has a single, clear pathway for invoice processing using modern OpenAI function calling.
